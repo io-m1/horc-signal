@@ -133,6 +133,35 @@ class ExhaustionResult:
                 raise ValueError(f"{name} must be [0.0, 1.0], got {value}")
 
 
+def calculate_exhaustion_score(candles: List[Candle], 
+                              volume_data: List[VolumeBar]) -> float:
+    """
+    Calculate exhaustion score from candles and volume data.
+    
+    This is a module-level wrapper function that matches the README.md
+    Section 3 interface specification. It creates a detector instance
+    and returns the score.
+    
+    Returns: Exhaustion score [0.0, 1.0]
+    >= 0.70 indicates absorption reversal likely
+    
+    Args:
+        candles: List of OHLCV candles
+        volume_data: List of volume bars with bid/ask breakdown
+        
+    Returns:
+        float: Exhaustion score [0.0, 1.0]
+        
+    Example:
+        >>> score = calculate_exhaustion_score(candles, volume_bars)
+        >>> if score >= 0.70:
+        ...     print("Absorption detected - reversal likely")
+    """
+    detector = ExhaustionDetector()
+    result = detector.detect(candles, volume_data)
+    return result.score
+
+
 class ExhaustionDetector:
     """
     AXIOM 3: Absorption Reversal Detector

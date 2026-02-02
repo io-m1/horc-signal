@@ -26,6 +26,7 @@ from .exhaustion import (
     ExhaustionConfig,
     ExhaustionResult,
     VolumeBar,
+    calculate_exhaustion_score,
 )
 from .gaps import (
     FuturesGapEngine,
@@ -49,6 +50,7 @@ __all__ = [
     "ExhaustionConfig",
     "ExhaustionResult",
     "VolumeBar",
+    "calculate_exhaustion_score",
     "FuturesGapEngine",
     "Gap",
     "GapType",
