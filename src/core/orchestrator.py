@@ -11,10 +11,18 @@ ARCHITECTURE:
 
 DESIGN PRINCIPLES:
 1. Pine-safe state: Only primitives, no dynamic objects
-2. Deterministic: Same input → same output, always
+2. Deterministic: Same input → same output, always (MANDATORY)
 3. Bar-local: No hidden future context
 4. Aggressive gating: High confluence threshold → fewer, better signals
 5. Regime-aware: Optional filtering by market conditions
+
+DETERMINISM RULE (NON-NEGOTIABLE):
+    Given the same bar sequence → identical IR sequence
+    - No randomness
+    - No clock access (use bar timestamps only)
+    - No external state leaks
+    
+    This enables: replay validation, Pine parity, walk-forward trust
 
 CONFLUENCE SCORING:
     confidence = w₁·participant + w₂·wavelength + w₃·exhaustion + w₄·gap
@@ -46,8 +54,8 @@ PINE TRANSLATION STRATEGY:
 """
 
 from dataclasses import dataclass
-from datetime import datetime
-from typing import List, Optional
+from typing import Optional, List
+import math
 
 from ..engines import (
     ParticipantIdentifier,
@@ -65,7 +73,8 @@ from ..engines import (
     GapConfig,
     Candle,
 )
-from .signal_ir import SignalIR, WavelengthStateEnum, GapTypeEnum
+from .signal_ir import SignalIR
+from .enums import WAVELENGTH_STATE, GAP_TYPE, BIAS, PARTICIPANT_CONTROL
 
 
 @dataclass
@@ -313,8 +322,15 @@ class HORCOrchestrator:
         # STEP 5: Emit Pine-Safe Signal IR
         # ===================================================================
         
+        # Convert timestamp to unix ms (Pine-safe)
+        timestamp_ms = int(candle.timestamp.timestamp() * 1000)
+        
+        # Handle futures_target Pine na pattern
+        has_target = gap_res.target_price is not None
+        target_value = gap_res.target_price if has_target else math.nan
+        
         signal = SignalIR(
-            timestamp=candle.timestamp,
+            timestamp=timestamp_ms,
             bias=bias,
             actionable=actionable,
             confidence=confluence,
@@ -335,7 +351,8 @@ class HORCOrchestrator:
             # Gap
             active_gap_type=self._gap_to_type(gap_res),
             gap_fill_progress=self._calculate_gap_fill_progress(gap_res),
-            futures_target=gap_res.target_price,
+            has_futures_target=has_target,
+            futures_target=target_value,
             
             # Debug flags
             debug_flags=self._compute_debug_flags(
@@ -345,6 +362,9 @@ class HORCOrchestrator:
                 gap_res
             ),
         )
+        
+        # Validate IR before returning (catch Pine-breaking drift)
+        self._validate_ir(signal)
         
         self.prev_signal = signal
         return signal
@@ -490,15 +510,15 @@ class HORCOrchestrator:
         else:
             votes.append(0)
         
-        # Count votes
-        bullish_votes = sum(1 for v in votes if v > 0)
-        bearish_votes = sum(1 for v in votes if v < 0)
+        # Count votes (improved clarity for Pine translation)
+        pos = sum(1 for v in votes if v > 0)
+        neg = sum(1 for v in votes if v < 0)
         
         # Determine bias (require majority if configured)
         if self.config.require_agreement:
-            if bullish_votes >= 2:
+            if pos >= 2:
                 return 1
-            elif bearish_votes >= 2:
+            elif neg >= 2:
                 return -1
             else:
                 return 0
@@ -598,7 +618,40 @@ class HORCOrchestrator:
         """Convert gap result to type enum integer"""
         if gap.nearest_gap:
             return gap.nearest_gap.gap_type.value
-        return GapTypeEnum.NONE.value
+        return GAP_TYPE["NONE"]
+    
+    def _validate_ir(self, ir: SignalIR):
+        """
+        Validate Signal IR constraints at runtime.
+        
+        This prevents silent Pine-breaking drift by catching violations
+        before they propagate to backtesting or deployment.
+        
+        CRITICAL: Call this before returning IR from process_bar.
+        
+        Checked constraints:
+            - bias in [-1, 0, 1]
+            - confidence in [0.0, 1.0]
+            - wavelength_state in [0, 7]
+            - gap_fill_progress in [0.0, 1.0]
+            - exhaustion_score in [0.0, 1.0]
+            - futures_target consistency with has_futures_target
+        
+        Raises:
+            AssertionError if any constraint violated
+        """
+        assert -1 <= ir.bias <= 1, f"bias out of range: {ir.bias}"
+        assert 0.0 <= ir.confidence <= 1.0, f"confidence out of range: {ir.confidence}"
+        assert 0 <= ir.wavelength_state <= 7, f"wavelength_state out of range: {ir.wavelength_state}"
+        assert 0.0 <= ir.gap_fill_progress <= 1.0, f"gap_fill_progress out of range: {ir.gap_fill_progress}"
+        assert 0.0 <= ir.exhaustion_score <= 1.0, f"exhaustion_score out of range: {ir.exhaustion_score}"
+        assert 0 <= ir.moves_completed <= 3, f"moves_completed out of range: {ir.moves_completed}"
+        
+        # futures_target consistency
+        if ir.has_futures_target:
+            assert not math.isnan(ir.futures_target), "has_futures_target=True but target is nan"
+        else:
+            assert math.isnan(ir.futures_target), "has_futures_target=False but target is not nan"
     
     def _calculate_gap_fill_progress(self, gap: GapAnalysisResult) -> float:
         """

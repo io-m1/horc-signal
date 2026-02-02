@@ -11,6 +11,7 @@ Validates:
 """
 
 import pytest
+import math
 from datetime import datetime, timedelta
 from typing import List
 
@@ -30,8 +31,14 @@ from src.engines import (
     GapAnalysisResult,
     Candle,
 )
-from src.core import SignalIR, HORCOrchestrator
-from src.core.signal_ir import WavelengthStateEnum, GapTypeEnum
+from src.core import (
+    SignalIR,
+    HORCOrchestrator,
+    WAVELENGTH_STATE,
+    GAP_TYPE,
+    BIAS,
+    PARTICIPANT_CONTROL,
+)
 from src.core.orchestrator import OrchestratorConfig
 
 
@@ -41,15 +48,23 @@ from src.core.orchestrator import OrchestratorConfig
 
 @pytest.fixture
 def base_timestamp():
-    """Base timestamp for tests"""
+    """Base timestamp for tests (datetime for Candle creation)"""
     return datetime(2026, 2, 2, 9, 30)
 
 
 @pytest.fixture
-def sample_candle(base_timestamp):
+def base_timestamp_ms():
+    """Base timestamp as unix ms int for SignalIR creation"""
+    dt = datetime(2026, 2, 2, 9, 30)
+    return int(dt.timestamp() * 1000)
+
+
+@pytest.fixture
+def sample_candle():
     """Sample candle for testing"""
+    dt = datetime(2026, 2, 2, 9, 30)
     return Candle(
-        timestamp=base_timestamp,
+        timestamp=dt,
         open=100.0,
         high=105.0,
         low=95.0,
@@ -94,10 +109,10 @@ def orchestrator(orchestrator_config):
 class TestSignalIR:
     """Test Signal IR Pine-compatibility constraints"""
     
-    def test_valid_signal_ir_creation(self, base_timestamp):
+    def test_valid_signal_ir_creation(self, base_timestamp_ms):
         """Can create valid SignalIR with all required fields"""
         signal = SignalIR(
-            timestamp=base_timestamp,
+            timestamp=base_timestamp_ms,
             bias=1,
             actionable=True,
             confidence=0.85,
@@ -110,6 +125,7 @@ class TestSignalIR:
             in_exhaustion_zone=True,
             active_gap_type=1,
             gap_fill_progress=0.5,
+            has_futures_target=True,
             futures_target=110.0,
             debug_flags=0x03,
         )
@@ -117,13 +133,15 @@ class TestSignalIR:
         assert signal.bias == 1
         assert signal.actionable is True
         assert signal.confidence == 0.85
+        assert signal.has_futures_target is True
+        assert signal.futures_target == 110.0
     
-    def test_bias_validation(self, base_timestamp):
+    def test_bias_validation(self, base_timestamp_ms):
         """Bias must be -1, 0, or 1"""
         # Valid values
         for bias in [-1, 0, 1]:
             signal = SignalIR(
-                timestamp=base_timestamp,
+                timestamp=base_timestamp_ms,
                 bias=bias,
                 actionable=False,
                 confidence=0.0,
@@ -136,7 +154,8 @@ class TestSignalIR:
                 in_exhaustion_zone=False,
                 active_gap_type=0,
                 gap_fill_progress=0.0,
-                futures_target=None,
+                has_futures_target=False,
+                futures_target=math.nan,
                 debug_flags=0,
             )
             assert signal.bias == bias
@@ -144,7 +163,7 @@ class TestSignalIR:
         # Invalid value
         with pytest.raises(ValueError, match="bias must be -1, 0, or 1"):
             SignalIR(
-                timestamp=base_timestamp,
+                timestamp=base_timestamp_ms,
                 bias=2,  # Invalid
                 actionable=False,
                 confidence=0.0,
@@ -157,16 +176,17 @@ class TestSignalIR:
                 in_exhaustion_zone=False,
                 active_gap_type=0,
                 gap_fill_progress=0.0,
-                futures_target=None,
+                has_futures_target=False,
+                futures_target=math.nan,
                 debug_flags=0,
             )
     
-    def test_confidence_bounds(self, base_timestamp):
+    def test_confidence_bounds(self, base_timestamp_ms):
         """Confidence must be [0.0, 1.0]"""
         # Valid boundaries
         for conf in [0.0, 0.5, 1.0]:
             signal = SignalIR(
-                timestamp=base_timestamp,
+                timestamp=base_timestamp_ms,
                 bias=0,
                 actionable=False,
                 confidence=conf,
@@ -179,7 +199,8 @@ class TestSignalIR:
                 in_exhaustion_zone=False,
                 active_gap_type=0,
                 gap_fill_progress=0.0,
-                futures_target=None,
+                has_futures_target=False,
+                futures_target=math.nan,
                 debug_flags=0,
             )
             assert signal.confidence == conf
@@ -187,7 +208,7 @@ class TestSignalIR:
         # Out of bounds
         with pytest.raises(ValueError, match="confidence must be"):
             SignalIR(
-                timestamp=base_timestamp,
+                timestamp=base_timestamp_ms,
                 bias=0,
                 actionable=False,
                 confidence=1.5,  # Invalid
@@ -200,16 +221,17 @@ class TestSignalIR:
                 in_exhaustion_zone=False,
                 active_gap_type=0,
                 gap_fill_progress=0.0,
-                futures_target=None,
+                has_futures_target=False,
+                futures_target=math.nan,
                 debug_flags=0,
             )
     
-    def test_wavelength_state_validation(self, base_timestamp):
+    def test_wavelength_state_validation(self, base_timestamp_ms):
         """Wavelength state must be 0-7"""
         # Valid states
         for state in range(8):
             signal = SignalIR(
-                timestamp=base_timestamp,
+                timestamp=base_timestamp_ms,
                 bias=0,
                 actionable=False,
                 confidence=0.0,
@@ -222,7 +244,8 @@ class TestSignalIR:
                 in_exhaustion_zone=False,
                 active_gap_type=0,
                 gap_fill_progress=0.0,
-                futures_target=None,
+                has_futures_target=False,
+                futures_target=math.nan,
                 debug_flags=0,
             )
             assert signal.wavelength_state == state
@@ -230,7 +253,7 @@ class TestSignalIR:
         # Invalid state
         with pytest.raises(ValueError, match="wavelength_state must be 0-7"):
             SignalIR(
-                timestamp=base_timestamp,
+                timestamp=base_timestamp_ms,
                 bias=0,
                 actionable=False,
                 confidence=0.0,
@@ -243,15 +266,16 @@ class TestSignalIR:
                 in_exhaustion_zone=False,
                 active_gap_type=0,
                 gap_fill_progress=0.0,
-                futures_target=None,
+                has_futures_target=False,
+                futures_target=math.nan,
                 debug_flags=0,
             )
     
-    def test_moves_completed_bounds(self, base_timestamp):
+    def test_moves_completed_bounds(self, base_timestamp_ms):
         """Moves completed must be 0-3"""
         for moves in [0, 1, 2, 3]:
             signal = SignalIR(
-                timestamp=base_timestamp,
+                timestamp=base_timestamp_ms,
                 bias=0,
                 actionable=False,
                 confidence=0.0,
@@ -264,15 +288,16 @@ class TestSignalIR:
                 in_exhaustion_zone=False,
                 active_gap_type=0,
                 gap_fill_progress=0.0,
-                futures_target=None,
+                has_futures_target=False,
+                futures_target=math.nan,
                 debug_flags=0,
             )
             assert signal.moves_completed == moves
     
-    def test_signal_ir_immutable(self, base_timestamp):
+    def test_signal_ir_immutable(self, base_timestamp_ms):
         """SignalIR is frozen (immutable)"""
         signal = SignalIR(
-            timestamp=base_timestamp,
+            timestamp=base_timestamp_ms,
             bias=1,
             actionable=True,
             confidence=0.85,
@@ -285,7 +310,8 @@ class TestSignalIR:
             in_exhaustion_zone=False,
             active_gap_type=0,
             gap_fill_progress=0.0,
-            futures_target=None,
+            has_futures_target=False,
+            futures_target=math.nan,
             debug_flags=0,
         )
         
@@ -293,10 +319,10 @@ class TestSignalIR:
         with pytest.raises(Exception):  # FrozenInstanceError
             signal.bias = -1
     
-    def test_signal_ir_to_dict(self, base_timestamp):
+    def test_signal_ir_to_dict(self, base_timestamp_ms):
         """Can serialize to dictionary"""
         signal = SignalIR(
-            timestamp=base_timestamp,
+            timestamp=base_timestamp_ms,
             bias=1,
             actionable=True,
             confidence=0.85,
@@ -309,6 +335,7 @@ class TestSignalIR:
             in_exhaustion_zone=False,
             active_gap_type=1,
             gap_fill_progress=0.3,
+            has_futures_target=True,
             futures_target=110.0,
             debug_flags=0x05,
         )
@@ -319,6 +346,7 @@ class TestSignalIR:
         assert d["actionable"] is True
         assert d["confidence"] == 0.85
         assert d["wavelength_state"] == 2
+        assert d["has_futures_target"] is True
         assert d["futures_target"] == 110.0
 
 
@@ -397,7 +425,9 @@ class TestOrchestrator:
         
         # Returns valid SignalIR
         assert isinstance(signal, SignalIR)
-        assert signal.timestamp == sample_candle.timestamp
+        # timestamp is unix ms int
+        expected_ts = int(sample_candle.timestamp.timestamp() * 1000)
+        assert signal.timestamp == expected_ts
         assert signal.bias in [-1, 0, 1]
         assert 0.0 <= signal.confidence <= 1.0
         assert isinstance(signal.actionable, bool)
@@ -513,13 +543,16 @@ class TestPineCompatibility:
     """Test Pine Script compatibility guarantees"""
     
     def test_no_dynamic_objects(self, orchestrator, sample_candle):
-        """SignalIR contains only primitive types"""
+        """SignalIR contains only primitive types (Pine-compatible)"""
         signal = orchestrator.process_bar(sample_candle)
         
-        # Check all fields are primitives or None
+        # Check all fields are Pine-compatible primitives
+        # NO datetime, NO None, NO complex objects
         for field_name in signal.__dataclass_fields__:
             value = getattr(signal, field_name)
-            assert isinstance(value, (int, float, bool, datetime, type(None)))
+            # All values must be int, float (including nan), or bool
+            assert isinstance(value, (int, float, bool)), \
+                f"Field {field_name} has non-primitive type {type(value)}"
     
     def test_bounded_state(self, orchestrator, sample_candle):
         """All scores and states have bounded ranges"""
