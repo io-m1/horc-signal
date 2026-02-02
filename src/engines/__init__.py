@@ -21,6 +21,12 @@ from .wavelength import (
     WavelengthConfig,
     validate_wavelength_progression,
 )
+from .exhaustion import (
+    ExhaustionDetector,
+    ExhaustionConfig,
+    ExhaustionResult,
+    VolumeBar,
+)
 
 __all__ = [
     "ParticipantIdentifier",
@@ -32,4 +38,8 @@ __all__ = [
     "WavelengthResult",
     "WavelengthConfig",
     "validate_wavelength_progression",
+    "ExhaustionDetector",
+    "ExhaustionConfig",
+    "ExhaustionResult",
+    "VolumeBar",
 ]
