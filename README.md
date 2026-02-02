@@ -9,22 +9,74 @@
 
 ```bash
 # Clone and setup
-git clone <repository>
+git clone https://github.com/io-m1/horc-signal.git
 cd horc-signal
+
+# Create virtual environment
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # Linux/Mac
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Configure data feeds
-cp config/config.example.yaml config/config.yaml
-# Edit config.yaml with your CME futures API keys
-
-# Run validation tests
+# Run validation tests (160 tests, all passing)
 python -m pytest tests/ -v
-
-# Start live engine (demo mode)
-python main.py --mode=demo --instrument=ES
 ```
+
+### Get Real Futures Data (2 Options)
+
+**Option 1: Interactive Brokers (FREE with account)**
+```bash
+# Install IB adapter
+pip install ib_insync
+
+# Download TWS: https://www.interactivebrokers.com/en/trading/tws.php
+# Enable API in TWS settings
+
+# Run HORC with live ES data
+python -c "
+from src.data import IBDataAdapter
+from src.core import HORCOrchestrator
+import asyncio
+
+async def trade():
+    adapter = IBDataAdapter()
+    await adapter.connect()
+    orchestrator = HORCOrchestrator()
+    
+    async for candle in adapter.stream_bars('ES', '1 min'):
+        signal = orchestrator.process_bar(candle)
+        if signal.actionable:
+            print(f'🚨 SIGNAL: {signal.bias:+d} @ {signal.confidence:.0%}')
+
+asyncio.run(trade())
+"
+```
+
+**Option 2: Massive.com ($79-199/month, cloud-based)**
+```bash
+# Install Massive adapter
+pip install requests websockets
+
+# Sign up: https://massive.com/dashboard
+# Get API key
+
+# Backtest with historical data
+python -c "
+from src.data import MassiveAdapter
+from src.core import HORCOrchestrator
+
+adapter = MassiveAdapter(api_key='YOUR_KEY')
+candles = adapter.get_historical_bars('C:ES', 1, 'minute', days=7)
+
+orchestrator = HORCOrchestrator()
+for candle in candles:
+    signal = orchestrator.process_bar(candle)
+"
+```
+
+See **[docs/QUICKSTART_DATA.md](docs/QUICKSTART_DATA.md)** for detailed setup instructions.
 
 ---
 
