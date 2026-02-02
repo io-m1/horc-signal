@@ -1,4 +1,4 @@
-//@version=5
+//@version=6
 // =============================================================================
 // HORC SIGNAL SYSTEM v2.0
 // Complete Implementation with Divergence & Absorption
@@ -43,6 +43,7 @@ show_signals = input.bool(true, "Show Buy/Sell Signals", group="Display")
 show_wavelength = input.bool(true, "Show Wavelength Pattern", group="Display")
 show_coordinates = input.bool(true, "Show Coordinates", group="Display")
 show_divergence = input.bool(true, "Show Divergence", group="Display")
+show_confluence = input.bool(false, "Show Confluence Histogram", group="Display")
 
 // Alert Settings
 enable_alerts = input.bool(true, "Enable Alerts", group="Alerts")
@@ -301,10 +302,10 @@ plotshape(show_signals and sell_signal, "Sell Signal", shape.triangledown, locat
 plotshape(show_signals and buy_reversal, "Buy Reversal", shape.circle, location.belowbar, color.new(color.lime, 0), size=size.tiny)
 plotshape(show_signals and sell_reversal, "Sell Reversal", shape.circle, location.abovebar, color.new(color.orange, 0), size=size.tiny)
 
-// Plot confidence level
-confidence_color = signal_confidence >= confluence_threshold ? color.new(color.blue, 70) : color.new(color.gray, 90)
-plot(show_confluence ? signal_confidence : na, "Confluence", confidence_color, 2, plot.style_histogram)
-hline(confluence_threshold, "Threshold", color.gray, hline.style_dotted)
+// Plot confidence level (disabled to preserve chart scale)
+// confidence_color = signal_confidence >= confluence_threshold ? color.new(color.blue, 70) : color.new(color.gray, 90)
+// plot(show_confluence ? signal_confidence : na, "Confluence", confidence_color, 2, plot.style_histogram)
+// hline(confluence_threshold, "Threshold", color.gray, hline.style_dotted)
 
 // Plot coordinates as labels
 if show_coordinates and bar_index % 10 == 0 and not na(coord_D)
@@ -314,28 +315,29 @@ if show_coordinates and bar_index % 10 == 0 and not na(coord_D)
               textcolor=color.white)
 
 // Plot divergence indicator
-div_color = divergence_type == DIV_FULL ? color.new(color.purple, 50) : 
-            divergence_type == DIV_PARTIAL ? color.new(color.orange, 70) : na
+div_color = divergence_type == DIV_FULL ? color.new(color.purple, 50) : divergence_type == DIV_PARTIAL ? color.new(color.orange, 70) : na
 bgcolor(show_divergence ? div_color : na, title="Divergence")
 
-// Draw liquidity zones
-if show_wavelength and array.size(zone_prices) > 0
-    for i = 0 to math.min(array.size(zone_prices) - 1, 10)  // Limit to last 10 zones
+// Draw liquidity zones (simplified - using horizontal lines)
+// Note: Full zone rendering would require array<line> management
+if show_wavelength and array.size(zone_prices) > 0 and barstate.islast
+    for i = 0 to math.min(array.size(zone_prices) - 1, 10)
         if array.get(zone_status, i) == ZONE_ACTIVE
             zone_price = array.get(zone_prices, i)
             zone_type = array.get(zone_types, i)
-            zone_color = zone_type == BUYER ? color.new(color.green, 85) : color.new(color.red, 85)
-            line.new(bar_index - 50, zone_price, bar_index, zone_price, color=zone_color, width=1, style=line.style_dashed)
+            zone_color = zone_type == BUYER ? color.new(color.green, 90) : color.new(color.red, 90)
+            // Draw zone marker
+            line.new(x1=bar_index - 50, y1=zone_price, x2=bar_index, y2=zone_price, 
+                     color=zone_color, width=1, style=line.style_dashed)
 
 // =============================================================================
 // ALERTS
 // =============================================================================
 
-if enable_alerts
-    alertcondition(buy_signal, "HORC Buy Signal", "HORC: Buy signal detected with confidence")
-    alertcondition(sell_signal, "HORC Sell Signal", "HORC: Sell signal detected with confidence")
-    alertcondition(buy_reversal, "HORC Buy Reversal", "HORC: Buy reversal (exhaustion) detected")
-    alertcondition(sell_reversal, "HORC Sell Reversal", "HORC: Sell reversal (exhaustion) detected")
+alertcondition(buy_signal and enable_alerts, "HORC Buy Signal", "Buy signal detected")
+alertcondition(sell_signal and enable_alerts, "HORC Sell Signal", "Sell signal detected")
+alertcondition(buy_reversal and enable_alerts, "HORC Buy Reversal", "Buy reversal detected")
+alertcondition(sell_reversal and enable_alerts, "HORC Sell Reversal", "Sell reversal detected")
 
 // =============================================================================
 // INFORMATION TABLE
