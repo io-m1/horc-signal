@@ -181,15 +181,15 @@ def main():
     
     # Wavelength engine
     wavelength_config = WavelengthConfig(
-        min_move_size_pct=0.002,
-        max_candles_per_move=10
+        min_move_1_size_atr=0.5,
+        max_move_duration_candles=10
     )
     wavelength = WavelengthEngine(wavelength_config)
     print("✓ WavelengthEngine initialized")
     
     # Exhaustion detector
     exhaustion_config = ExhaustionConfig(
-        lookback_candles=3,
+        volume_lookback=3,
         threshold=0.7
     )
     exhaustion = ExhaustionDetector(exhaustion_config)
@@ -198,7 +198,7 @@ def main():
     # Futures gap engine
     gap_config = GapConfig(
         min_gap_size_percent=0.001,
-        gap_fill_tolerance=0.001
+        gap_fill_tolerance=0.5
     )
     gap_engine = FuturesGapEngine(gap_config)
     print("✓ FuturesGapEngine initialized")

@@ -74,7 +74,27 @@ from ..engines import (
     Candle,
 )
 from .signal_ir import SignalIR
-from .enums import WAVELENGTH_STATE, GAP_TYPE, BIAS, PARTICIPANT_CONTROL
+from .enums import WAVELENGTH_STATE, GAP_TYPE, BIAS, PARTICIPANT_CONTROL, LIQUIDITY_DIRECTION, MARKET_CONTROL
+from .strategic_context import LiquidityIntent, MarketControlState, StrategicContext
+from .opposition import (
+    SignalState,
+    LogicType,
+    PeriodType,
+    PeriodSignal,
+    AggressorState,
+    validate_opposition,
+    resolve_aggressor,
+    compute_signal_from_crl,
+)
+from .quadrant import (
+    SignalRole,
+    ParticipantScope,
+    TimeframeSignal,
+    QuadrantResult,
+    resolve_quadrant,
+    is_tf_eligible,
+    get_preferred_logic,
+)
 
 
 @dataclass
@@ -197,7 +217,242 @@ class HORCOrchestrator:
         # Persistent state (Pine-compatible - only primitives)
         self.prev_signal: Optional[SignalIR] = None
         self.bars_processed: int = 0
+        
+        # Strategic context (TOP OF DECISION STACK)
+        self.strategic_context: StrategicContext = StrategicContext.null()
+        
+        # Opposition state (THE CORE INVARIANT)
+        # Once conclusive → NEVER overridden
+        self.aggressor_state: AggressorState = AggressorState()
+        self.prev_period_signal: Optional[PeriodSignal] = None
+        self.logic_type: LogicType = LogicType.CRL  # Default to CRL (cleanest)
+        
+        # Quadrant state (THE AUTHORITY LAYER)
+        # Tracks signals across timeframes for HCT resolution
+        self.tf_signals: List[TimeframeSignal] = []
+        self.quadrant_result: Optional[QuadrantResult] = None
+        self.participant_scope: ParticipantScope = ParticipantScope.DAILY
     
+    def set_strategic_context(
+        self,
+        liquidity: LiquidityIntent,
+        control: MarketControlState,
+    ) -> StrategicContext:
+        """
+        Set the strategic context BEFORE processing bars.
+        
+        This is the FIRST thing done at session/day open:
+            1. Identify target liquidity
+            2. Determine market control
+            3. Check alignment
+        
+        If context is invalid, all downstream signals will be null.
+        
+        Args:
+            liquidity: Target liquidity intent
+            control: Market control state
+        
+        Returns:
+            Resolved StrategicContext
+        """
+        self.strategic_context = StrategicContext.resolve(liquidity, control)
+        return self.strategic_context
+    
+    def update_opposition(
+        self,
+        period_type: PeriodType,
+        current_open: float,
+        prev_close_high: float,
+        prev_close_low: float,
+        prev_close_signal: SignalState,
+        timestamp: int,
+    ) -> AggressorState:
+        """
+        Update opposition state on new period boundary.
+        
+        THE CORE INVARIANT:
+            A signal is ONLY conclusive when the new period opens
+            in OPPOSITION to the previous period's close.
+        
+        This method should be called ONCE at each period boundary
+        (daily/weekly/monthly open).
+        
+        Args:
+            period_type: The period type being evaluated
+            current_open: Opening price of new period
+            prev_close_high: High of last candle of previous period
+            prev_close_low: Low of last candle of previous period
+            prev_close_signal: Previous period's closing signal
+            timestamp: Current timestamp (ms)
+        
+        Returns:
+            Updated AggressorState (conclusive or inconclusive)
+        
+        Example (daily open):
+            aggressor = orchestrator.update_opposition(
+                period_type=PeriodType.DAILY,
+                current_open=candle.open,
+                prev_close_high=yesterday_last_candle.high,
+                prev_close_low=yesterday_last_candle.low,
+                prev_close_signal=SignalState.BUY,
+                timestamp=candle.timestamp,
+            )
+            
+            if aggressor.conclusive:
+                # Signal is TRUE — proceed with confidence
+            else:
+                # Signal is INCONCLUSIVE — do not trade
+        """
+        # Rule: Once conclusive, never override
+        if self.aggressor_state.conclusive:
+            return self.aggressor_state
+        
+        # Compute new open signal using CRL (default)
+        new_open_signal = compute_signal_from_crl(
+            current_open=current_open,
+            prev_close_high=prev_close_high,
+            prev_close_low=prev_close_low,
+        )
+        
+        # Build period signals
+        new_period = PeriodSignal(
+            period=period_type,
+            logic=self.logic_type,
+            open_signal=new_open_signal,
+            close_signal=SignalState.INCONCLUSIVE,  # Unknown yet
+            reference_high=prev_close_high,
+            reference_low=prev_close_low,
+            timestamp=timestamp,
+        )
+        
+        prev_period = PeriodSignal(
+            period=period_type,
+            logic=self.logic_type,
+            open_signal=SignalState.INCONCLUSIVE,  # Not relevant
+            close_signal=prev_close_signal,
+            timestamp=timestamp - 1,  # Placeholder
+        )
+        
+        # Resolve aggressor via opposition validation
+        self.aggressor_state = resolve_aggressor(
+            prev_period=prev_period,
+            new_period=new_period,
+            current_aggressor=self.aggressor_state,
+        )
+        
+        self.prev_period_signal = new_period
+        return self.aggressor_state
+
+    def register_tf_signal(
+        self,
+        tf: str,
+        conclusive: bool,
+        direction: int,
+        liquidity_high: float = 0.0,
+        liquidity_low: float = 0.0,
+    ) -> TimeframeSignal:
+        """
+        Register a timeframe's signal for quadrant resolution.
+        
+        Call this after Opposition Rule validation for each TF you track.
+        
+        Args:
+            tf: Timeframe string (e.g., "H4", "H8", "D1")
+            conclusive: Whether this TF passed Opposition Rule
+            direction: +1 (buy) or -1 (sell)
+            liquidity_high: High of the reference range
+            liquidity_low: Low of the reference range
+        
+        Returns:
+            The registered TimeframeSignal
+        
+        Example:
+            # After daily open, register multiple TF signals
+            orchestrator.register_tf_signal("H4", True, -1, 1.1050, 1.1000)
+            orchestrator.register_tf_signal("H8", True, 1, 1.1100, 1.1020)
+            orchestrator.register_tf_signal("H12", False, 0)
+            
+            # Then resolve to find HCT
+            result = orchestrator.resolve_quadrant()
+            # H8 wins (highest conclusive), H4 becomes imbalance-only
+        """
+        # Validate eligibility
+        if not is_tf_eligible(tf, self.participant_scope):
+            raise ValueError(
+                f"TF {tf} not eligible for scope {self.participant_scope.name}. "
+                f"Max allowed: {self.participant_scope}"
+            )
+        
+        signal = TimeframeSignal(
+            tf=tf,
+            conclusive=conclusive,
+            direction=direction,
+            logic_type=get_preferred_logic(self.participant_scope),
+            liquidity_high=liquidity_high,
+            liquidity_low=liquidity_low,
+        )
+        
+        # Replace if already registered, else append
+        existing = [s for s in self.tf_signals if s.tf == tf]
+        if existing:
+            self.tf_signals.remove(existing[0])
+        
+        self.tf_signals.append(signal)
+        return signal
+
+    def resolve_quadrant_authority(self) -> QuadrantResult:
+        """
+        Resolve quadrant — determine which TF owns truth.
+        
+        THE FORMAL RULE:
+            If two timeframes are conclusive but disagree:
+            The higher timeframe decides liquidity & bias.
+            The lower timeframe is reclassified as imbalance only.
+        
+        Returns:
+            QuadrantResult with HCT and role assignments
+        
+        Example:
+            result = orchestrator.resolve_quadrant_authority()
+            
+            if result.resolved:
+                print(f"HCT: {result.hct.tf}")
+                print(f"Direction: {result.liquidity_direction}")
+                
+                for imb in result.imbalance_signals:
+                    print(f"Imbalance zone from {imb.tf}: {imb.direction}")
+        """
+        self.quadrant_result = resolve_quadrant(self.tf_signals)
+        return self.quadrant_result
+
+    def get_authority_direction(self) -> int:
+        """
+        Get the authoritative direction from HCT.
+        
+        This is THE direction to trade. Period.
+        """
+        if self.quadrant_result and self.quadrant_result.hct:
+            return self.quadrant_result.liquidity_direction
+        return 0
+
+    def is_signal_aligned(self, signal_direction: int) -> bool:
+        """
+        Check if a signal aligns with HCT authority.
+        
+        CRITICAL: Lower TF signals that disagree with HCT
+        are NOT liquidity — they are imbalance only.
+        
+        Args:
+            signal_direction: The signal direction to check
+        
+        Returns:
+            True if aligned with HCT, False otherwise
+        """
+        authority = self.get_authority_direction()
+        if authority == 0:
+            return False  # No authority resolved
+        return signal_direction == authority
+
     def process_bar(
         self,
         candle: Candle,
@@ -313,10 +568,14 @@ class HORCOrchestrator:
         )
         
         # ===================================================================
-        # STEP 4: Gate Actionability
+        # STEP 4: Gate Actionability (Strategic Context + Confluence)
         # ===================================================================
         
-        actionable = self._is_actionable(confluence, bias)
+        # Strategic context gating (TOP PRIORITY)
+        # If liquidity/control not aligned → stand down regardless of confluence
+        strategic_valid = self.strategic_context.valid
+        
+        actionable = self._is_actionable(confluence, bias) and strategic_valid
         
         # ===================================================================
         # STEP 5: Emit Pine-Safe Signal IR
@@ -361,6 +620,15 @@ class HORCOrchestrator:
                 exhaustion_res,
                 gap_res
             ),
+            
+            # Strategic context (TOP OF DECISION STACK)
+            liquidity_direction=self.strategic_context.liquidity.direction,
+            liquidity_level=self.strategic_context.liquidity.level,
+            liquidity_valid=self.strategic_context.liquidity.valid,
+            market_control=self.strategic_context.control.control,
+            market_control_conclusive=self.strategic_context.control.conclusive,
+            strategic_alignment=self.strategic_context.alignment_score,
+            strategic_valid=self.strategic_context.valid,
         )
         
         # Validate IR before returning (catch Pine-breaking drift)

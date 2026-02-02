@@ -77,6 +77,60 @@ PARTICIPANT_CONTROL = {
 
 
 # ==============================================================================
+# TIMEFRAME HIERARCHY (for liquidity & control resolution)
+# ==============================================================================
+
+TIMEFRAME = {
+    "M1": 1,
+    "M5": 5,
+    "M15": 15,
+    "M30": 30,
+    "H1": 60,
+    "H4": 240,
+    "H6": 360,
+    "H8": 480,
+    "H12": 720,
+    "D1": 1440,
+    "W1": 10080,
+    "MN": 43200,
+}
+
+# Hierarchy order (higher = more authoritative)
+TIMEFRAME_RANK = {
+    "M1": 0, "M5": 1, "M15": 2, "M30": 3,
+    "H1": 4, "H4": 5, "H6": 6, "H8": 7, "H12": 8,
+    "D1": 9, "W1": 10, "MN": 11,
+}
+
+
+# ==============================================================================
+# LIQUIDITY INTENT (TOP OF DECISION STACK)
+# ==============================================================================
+
+LIQUIDITY_DIRECTION = {
+    "NONE": 0,
+    "SELL_SIDE": -1,      # Targeting sell-side liquidity (lows)
+    "BUY_SIDE": 1,        # Targeting buy-side liquidity (highs)
+}
+
+
+# ==============================================================================
+# MARKET CONTROL STATE (AGGRESSOR VS PASSIVE)
+# ==============================================================================
+
+MARKET_CONTROL = {
+    "INCONCLUSIVE": 0,
+    "BUYERS_AGGRESSIVE": 1,
+    "SELLERS_AGGRESSIVE": -1,
+    "BUYERS_PASSIVE": 2,
+    "SELLERS_PASSIVE": -2,
+}
+
+# Reverse mapping for display
+MARKET_CONTROL_NAMES = {v: k for k, v in MARKET_CONTROL.items()}
+
+
+# ==============================================================================
 # DEBUG FLAGS (BITFIELD)
 # ==============================================================================
 
@@ -86,4 +140,6 @@ DEBUG_FLAGS = {
     "EXHAUSTION_ENTRY": 0x04,       # Bit 2: Entered exhaustion zone
     "GAP_FILL_COMPLETE": 0x08,      # Bit 3: Gap filled
     "CONFLUENCE_THRESHOLD": 0x10,   # Bit 4: Crossed threshold
+    "LIQUIDITY_SELECTED": 0x20,     # Bit 5: Liquidity target set
+    "CONTROL_RESOLVED": 0x40,       # Bit 6: Market control determined
 }

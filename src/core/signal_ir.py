@@ -25,7 +25,7 @@ import math
 
 # Import locked enum contracts
 # CRITICAL: These numbers must NEVER change after deployment
-from .enums import WAVELENGTH_STATE, GAP_TYPE, BIAS, PARTICIPANT_CONTROL, DEBUG_FLAGS
+from .enums import WAVELENGTH_STATE, GAP_TYPE, BIAS, PARTICIPANT_CONTROL, DEBUG_FLAGS, LIQUIDITY_DIRECTION, MARKET_CONTROL
 
 
 @dataclass(frozen=True)
@@ -170,6 +170,55 @@ class SignalIR:
     Pine: var int debug_flags = 0
     """
     
+    # ===================================================================
+    # STRATEGIC CONTEXT (TOP OF DECISION STACK)
+    # These fields gate all other signals. If invalid, actionable=False.
+    # ===================================================================
+    liquidity_direction: int = 0
+    """
+    Target liquidity direction.
+    -1 = SELL_SIDE, +1 = BUY_SIDE, 0 = NONE
+    Pine: var int liq_direction = 0
+    """
+    
+    liquidity_level: float = 0.0
+    """
+    Target liquidity price level.
+    Pine: var float liq_level = na
+    """
+    
+    liquidity_valid: bool = False
+    """
+    Whether liquidity intent is valid/actionable.
+    Pine: var bool liq_valid = false
+    """
+    
+    market_control: int = 0
+    """
+    Market control state (see MARKET_CONTROL enum).
+    Pine: var int mkt_control = 0
+    """
+    
+    market_control_conclusive: bool = False
+    """
+    Whether market control is conclusively determined.
+    Pine: var bool mkt_conclusive = false
+    """
+    
+    strategic_alignment: float = 0.0
+    """
+    Alignment score between liquidity and control [0.0, 1.0].
+    Higher = better alignment = higher confidence.
+    Pine: var float ctx_alignment = 0.0
+    """
+    
+    strategic_valid: bool = False
+    """
+    Whether strategic context permits signal generation.
+    If False, actionable MUST be False regardless of confluence.
+    Pine: var bool ctx_valid = false
+    """
+    
     def __post_init__(self):
         """
         Validate Pine-compatibility constraints.
@@ -252,6 +301,14 @@ class SignalIR:
             "has_futures_target": self.has_futures_target,
             "futures_target": self.futures_target if self.has_futures_target else None,
             "debug_flags": self.debug_flags,
+            # Strategic context
+            "liquidity_direction": self.liquidity_direction,
+            "liquidity_level": self.liquidity_level,
+            "liquidity_valid": self.liquidity_valid,
+            "market_control": self.market_control,
+            "market_control_conclusive": self.market_control_conclusive,
+            "strategic_alignment": self.strategic_alignment,
+            "strategic_valid": self.strategic_valid,
         }
     
     def __str__(self) -> str:
@@ -263,9 +320,12 @@ class SignalIR:
         dt = datetime.fromtimestamp(self.timestamp / 1000.0)
         
         target_str = f"{self.futures_target:.2f}" if self.has_futures_target else "none"
+        liq_dir = {-1: "SELL", 0: "NONE", 1: "BUY"}[self.liquidity_direction]
+        ctx_str = "ALIGNED" if self.strategic_valid else "STANDBY"
         
         return (
             f"SignalIR @ {dt.strftime('%Y-%m-%d %H:%M')}\n"
+            f"  Strategic: {ctx_str} | Liq: {liq_dir} | Alignment: {self.strategic_alignment:.2f}\n"
             f"  Bias: {bias_str} | {action_str}\n"
             f"  Confidence: {self.confidence:.2f}\n"
             f"  Participant: {self.participant_control:+d} | "

@@ -20,7 +20,7 @@ python -m venv .venv
 # Install dependencies
 pip install -r requirements.txt
 
-# Run validation tests (160 tests, all passing)
+# Run validation tests (200 tests, all passing)
 python -m pytest tests/ -v
 ```
 
