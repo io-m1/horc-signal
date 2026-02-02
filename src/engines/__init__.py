@@ -27,6 +27,13 @@ from .exhaustion import (
     ExhaustionResult,
     VolumeBar,
 )
+from .gaps import (
+    FuturesGapEngine,
+    Gap,
+    GapType,
+    GapConfig,
+    GapAnalysisResult,
+)
 
 __all__ = [
     "ParticipantIdentifier",
@@ -42,4 +49,9 @@ __all__ = [
     "ExhaustionConfig",
     "ExhaustionResult",
     "VolumeBar",
+    "FuturesGapEngine",
+    "Gap",
+    "GapType",
+    "GapConfig",
+    "GapAnalysisResult",
 ]
