@@ -14,10 +14,22 @@ from .participant import (
     ParticipantResult,
     Candle,
 )
+from .wavelength import (
+    WavelengthEngine,
+    WavelengthState,
+    WavelengthResult,
+    WavelengthConfig,
+    validate_wavelength_progression,
+)
 
 __all__ = [
     "ParticipantIdentifier",
     "ParticipantType",
     "ParticipantResult",
     "Candle",
+    "WavelengthEngine",
+    "WavelengthState",
+    "WavelengthResult",
+    "WavelengthConfig",
+    "validate_wavelength_progression",
 ]
