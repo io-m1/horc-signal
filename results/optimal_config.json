@@ -1,0 +1,21 @@
+{
+  "name": "Participant-Heavy",
+  "confluence_threshold": 0.4,
+  "participant_weight": 0.5,
+  "wavelength_weight": 0.2,
+  "exhaustion_weight": 0.2,
+  "gap_weight": 0.1,
+  "participant_conviction": 0.3,
+  "wavelength_move1_atr": 0.3,
+  "exhaustion_threshold": 0.6,
+  "performance": {
+    "signals": 0,
+    "trades": 0,
+    "win_rate": 0.0,
+    "avg_pnl_r": 0.0,
+    "total_pnl_r": 0.0,
+    "max_drawdown_r": 0.0,
+    "sharpe_ratio": 0.0,
+    "quality_score": 0.0
+  }
+}
