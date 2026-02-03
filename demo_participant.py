@@ -1,9 +1,3 @@
-"""
-Demo: ParticipantIdentifier Implementation
-
-This script demonstrates AXIOM 2: First Move Determinism in action
-"""
-
 from datetime import datetime, timedelta
 from src.engines.participant import (
     ParticipantIdentifier,
@@ -11,19 +5,14 @@ from src.engines.participant import (
     Candle
 )
 
-
 def print_separator(title: str):
-    """Print a formatted section separator"""
     print("\n" + "="*70)
     print(f"  {title}")
     print("="*70)
 
-
 def demo_buyers_control():
-    """Demonstrate BUYERS taking control by sweeping ORH"""
     print_separator("DEMO 1: BUYERS Control - First Move Sweeps ORH")
     
-    # Setup: Previous session data
     identifier = ParticipantIdentifier()
     base_time = datetime(2024, 1, 1, 9, 30)
     
@@ -37,12 +26,10 @@ def demo_buyers_control():
     print(f"  ORH_prev: ${orh:.2f}")
     print(f"  ORL_prev: ${orl:.2f}")
     
-    # Current session: First candle sweeps ORH
     identifier.prev_session_candles = previous_session
     current_time = datetime(2024, 1, 2, 9, 30)
     
     current_session = [
-        # First candle: Aggressively sweeps ORH_prev (4530)
         Candle(current_time, 4520.0, 4540.0, 4515.0, 4535.0, 1500.0),
     ]
     
@@ -53,7 +40,6 @@ def demo_buyers_control():
     print(f"  Low:   ${candle.low:.2f}")
     print(f"  Close: ${candle.close:.2f}")
     
-    # Identify participant
     result = identifier.identify(current_session)
     
     print("\n📊 PARTICIPANT IDENTIFICATION RESULT:")
@@ -67,12 +53,9 @@ def demo_buyers_control():
     print("  → Buyers are the informed/aggressive participants")
     print("  → Expect continuation to the upside (bullish bias)")
 
-
 def demo_sellers_control():
-    """Demonstrate SELLERS taking control by sweeping ORL"""
     print_separator("DEMO 2: SELLERS Control - First Move Sweeps ORL")
     
-    # Setup
     identifier = ParticipantIdentifier()
     base_time = datetime(2024, 1, 1, 9, 30)
     
@@ -86,12 +69,10 @@ def demo_sellers_control():
     print(f"  ORH_prev: ${orh:.2f}")
     print(f"  ORL_prev: ${orl:.2f}")
     
-    # Current session: First candle sweeps ORL
     identifier.prev_session_candles = previous_session
     current_time = datetime(2024, 1, 2, 9, 30)
     
     current_session = [
-        # First candle: Aggressively sweeps ORL_prev (4480)
         Candle(current_time, 4490.0, 4495.0, 4470.0, 4475.0, 1800.0),
     ]
     
@@ -102,7 +83,6 @@ def demo_sellers_control():
     print(f"  Low:   ${candle.low:.2f} ← SWEEPS ORL_prev (${orl:.2f})")
     print(f"  Close: ${candle.close:.2f}")
     
-    # Identify participant
     result = identifier.identify(current_session)
     
     print("\n📊 PARTICIPANT IDENTIFICATION RESULT:")
@@ -116,12 +96,9 @@ def demo_sellers_control():
     print("  → Sellers are the informed/aggressive participants")
     print("  → Expect continuation to the downside (bearish bias)")
 
-
 def demo_no_conviction():
-    """Demonstrate no clear participant when no sweep occurs"""
     print_separator("DEMO 3: NO CONVICTION - No Sweep Detected")
     
-    # Setup
     identifier = ParticipantIdentifier()
     base_time = datetime(2024, 1, 1, 9, 30)
     
@@ -135,12 +112,10 @@ def demo_no_conviction():
     print(f"  ORH_prev: ${orh:.2f}")
     print(f"  ORL_prev: ${orl:.2f}")
     
-    # Current session: Candles stay within range
     identifier.prev_session_candles = previous_session
     current_time = datetime(2024, 1, 2, 9, 30)
     
     current_session = [
-        # Candles trade within the range - no sweep
         Candle(current_time, 4500.0, 4515.0, 4495.0, 4510.0, 800.0),
         Candle(current_time + timedelta(minutes=1), 4510.0, 4520.0, 4505.0, 4515.0, 750.0),
         Candle(current_time + timedelta(minutes=2), 4515.0, 4525.0, 4510.0, 4520.0, 700.0),
@@ -151,7 +126,6 @@ def demo_no_conviction():
         print(f"  Candle {i}: High=${candle.high:.2f}, Low=${candle.low:.2f}")
     print(f"  → None sweep ORH (${orh:.2f}) or ORL (${orl:.2f})")
     
-    # Identify participant
     result = identifier.identify(current_session)
     
     print("\n📊 PARTICIPANT IDENTIFICATION RESULT:")
@@ -166,12 +140,9 @@ def demo_no_conviction():
     print("  → WAIT for conviction before taking position")
     print("  → System remains neutral until clear signal emerges")
 
-
 def demo_second_candle_sweep():
-    """Demonstrate sweep detection in second candle"""
     print_separator("DEMO 4: Second Candle Sweep - Delayed Entry")
     
-    # Setup
     identifier = ParticipantIdentifier()
     base_time = datetime(2024, 1, 1, 9, 30)
     
@@ -185,14 +156,11 @@ def demo_second_candle_sweep():
     print(f"  ORH_prev: ${orh:.2f}")
     print(f"  ORL_prev: ${orl:.2f}")
     
-    # Current session: Second candle sweeps
     identifier.prev_session_candles = previous_session
     current_time = datetime(2024, 1, 2, 9, 30)
     
     current_session = [
-        # First candle: No sweep
         Candle(current_time, 4500.0, 4515.0, 4495.0, 4510.0, 800.0),
-        # Second candle: SWEEPS ORH
         Candle(current_time + timedelta(minutes=1), 4510.0, 4540.0, 4505.0, 4535.0, 1500.0),
     ]
     
@@ -200,7 +168,6 @@ def demo_second_candle_sweep():
     print(f"  Candle 0: High=${current_session[0].high:.2f}, Low=${current_session[0].low:.2f} (no sweep)")
     print(f"  Candle 1: High=${current_session[1].high:.2f}, Low=${current_session[1].low:.2f} ← SWEEPS ORH")
     
-    # Identify participant
     result = identifier.identify(current_session)
     
     print("\n📊 PARTICIPANT IDENTIFICATION RESULT:")
@@ -214,12 +181,9 @@ def demo_second_candle_sweep():
     print("  → System detected sweep within allowed window (3 candles)")
     print("  → Still valid signal despite delayed entry")
 
-
 def demo_mathematical_properties():
-    """Demonstrate mathematical properties: determinism, monotonicity"""
     print_separator("DEMO 5: Mathematical Properties - Determinism & Monotonicity")
     
-    # Setup
     identifier1 = ParticipantIdentifier()
     identifier2 = ParticipantIdentifier()
     base_time = datetime(2024, 1, 1, 9, 30)
@@ -233,7 +197,6 @@ def demo_mathematical_properties():
         Candle(datetime(2024, 1, 2, 9, 30), 4520.0, 4540.0, 4515.0, 4535.0, 1500.0),
     ]
     
-    # Test determinism: same input → same output
     identifier1.prev_session_candles = previous_session
     identifier2.prev_session_candles = previous_session
     
@@ -245,7 +208,6 @@ def demo_mathematical_properties():
     print(f"  Identifier 2 Result: {result2.participant_type.value}")
     print(f"  Same Input → Same Output: {result1.participant_type == result2.participant_type}")
     
-    # Test monotonicity: first sweep wins
     identifier3 = ParticipantIdentifier()
     identifier3.prev_session_candles = previous_session
     
@@ -253,9 +215,7 @@ def demo_mathematical_properties():
     current_time = datetime(2024, 1, 2, 9, 30)
     
     both_sweeps = [
-        # First candle: Sellers sweep ORL
         Candle(current_time, 4490.0, 4495.0, 4470.0, 4475.0, 1800.0),
-        # Second candle: Buyers sweep ORH (but should be ignored)
         Candle(current_time + timedelta(minutes=1), 4475.0, 4540.0, 4470.0, 4535.0, 2000.0),
     ]
     
@@ -271,9 +231,7 @@ def demo_mathematical_properties():
     print(f"  Output is one of: {[pt.value for pt in ParticipantType]}")
     print(f"  No probabilistic component - pure classification")
 
-
 def main():
-    """Run all demos"""
     print("\n" + "="*70)
     print("  HORC ParticipantIdentifier - Implementation Demo")
     print("  AXIOM 2: First Move Determinism")
@@ -288,7 +246,6 @@ def main():
     print("\n" + "="*70)
     print("  Demo Complete - All AXIOM 2 Properties Validated ✓")
     print("="*70 + "\n")
-
 
 if __name__ == "__main__":
     main()

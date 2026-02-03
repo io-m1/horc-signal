@@ -1,10 +1,3 @@
-"""
-Demo: WavelengthEngine Implementation
-
-This script demonstrates AXIOM 1: Wavelength Invariant (exactly 3 moves)
-Shows the complete finite-state automaton in action
-"""
-
 from datetime import datetime, timedelta
 from src.engines.wavelength import (
     WavelengthEngine,
@@ -18,16 +11,12 @@ from src.engines.participant import (
     ParticipantType
 )
 
-
 def print_separator(title: str):
-    """Print a formatted section separator"""
     print("\n" + "="*70)
     print(f"  {title}")
     print("="*70)
 
-
 def print_state_info(result, candle_num):
-    """Print current state information"""
     print(f"\n📍 Candle #{candle_num} | State: {result.state.value}")
     print(f"   Moves Completed: {result.moves_completed}/3")
     print(f"   Signal Strength: {result.signal_strength:.2f}")
@@ -44,15 +33,12 @@ def print_state_info(result, candle_num):
     if result.target_price:
         print(f"   Target: ${result.target_price:.2f}")
 
-
 def demo_complete_cycle():
-    """Demonstrate complete 3-move wavelength cycle"""
     print_separator("DEMO 1: Complete 3-Move Cycle (BUYERS)")
     
     engine = WavelengthEngine()
     base_time = datetime(2024, 1, 2, 9, 30)
     
-    # Create BUYERS participant
     participant = ParticipantResult(
         participant_type=ParticipantType.BUYERS,
         conviction_level=True,
@@ -69,19 +55,16 @@ def demo_complete_cycle():
     state_history = []
     candle_num = 0
     
-    # === STAGE 1: Participant Identification ===
     print("\n" + "-"*70)
     print("STAGE 1: Participant Identification → MOVE_1")
     print("-"*70)
     
-    # Initial candle with participant
     candle_num += 1
     candle = Candle(base_time, 4490.0, 4500.0, 4485.0, 4495.0, 1000.0)
     result = engine.process_candle(candle, participant)
     state_history.append(result.state)
     print_state_info(result, candle_num)
     
-    # === MOVE 1: Upward directional move ===
     print("\n▲ Move 1: Upward directional move (buyers pushing up)...")
     
     for i in range(1, 12):
@@ -89,14 +72,12 @@ def demo_complete_cycle():
         price_base = 4495.0 + (i * 5)
         
         if i < 11:
-            # Strong upward candles
             candle = Candle(
                 base_time + timedelta(minutes=i),
                 price_base, price_base + 7, price_base - 2, price_base + 5,
                 1000.0 + i * 100
             )
         else:
-            # Rejection candle (completes Move 1)
             candle = Candle(
                 base_time + timedelta(minutes=i),
                 price_base, price_base + 15, price_base - 2, price_base + 2,  # Long upper wick
@@ -111,7 +92,6 @@ def demo_complete_cycle():
     
     print("\n✓ Move 1 Complete - Buyers reached extreme, now showing exhaustion")
     
-    # === MOVE 2: Reversal/Retracement ===
     print("\n" + "-"*70)
     print("STAGE 2: MOVE_1 → MOVE_2 (Reversal)")
     print("-"*70)
@@ -121,7 +101,6 @@ def demo_complete_cycle():
         candle_num += 1
         price_base = 4545.0 - ((i - 11) * 4)
         
-        # Bearish reversal candles
         candle = Candle(
             base_time + timedelta(minutes=i),
             price_base + 2, price_base + 3, price_base - 5, price_base - 3,
@@ -136,17 +115,14 @@ def demo_complete_cycle():
     
     print("\n✓ Move 2 In Progress - Retracing to create flip point opportunity")
     
-    # === FLIP POINT: Exhaustion/Absorption ===
     print("\n" + "-"*70)
     print("STAGE 3: MOVE_2 → FLIP_CONFIRMED (Absorption)")
     print("-"*70)
     print("\n⚡ Exhaustion Detection: High volume, long wicks, price stagnation...")
     
-    # Absorption candles (high volume, small body, long wicks)
     for i in range(18, 22):
         candle_num += 1
         
-        # Small-body, high-volume candles showing absorption
         candle = Candle(
             base_time + timedelta(minutes=i),
             4518.0, 4523.0, 4510.0, 4520.0,  # Long lower wick
@@ -163,7 +139,6 @@ def demo_complete_cycle():
             print("   Buyers ready to take control again")
             break
     
-    # === FLIP CONFIRMATION ===
     print("\n" + "-"*70)
     print("STAGE 4: FLIP_CONFIRMED → MOVE_3 (Confirmation Period)")
     print("-"*70)
@@ -182,7 +157,6 @@ def demo_complete_cycle():
     
     print("\n✓ Flip Point Confirmed - Ready for Move 3")
     
-    # === MOVE 3: Continuation ===
     print("\n" + "-"*70)
     print("STAGE 5: MOVE_3 → COMPLETE (Continuation to Target)")
     print("-"*70)
@@ -208,7 +182,6 @@ def demo_complete_cycle():
             print("\n✓✓✓ PATTERN COMPLETE - Target Reached!")
             break
     
-    # === VALIDATION ===
     print("\n" + "="*70)
     print("  AXIOM 1 VALIDATION")
     print("="*70)
@@ -230,15 +203,12 @@ def demo_complete_cycle():
         print(f"   {state.value}{arrow}", end="")
     print("\n")
 
-
 def demo_pattern_failure():
-    """Demonstrate pattern invalidation (FAILED state)"""
     print_separator("DEMO 2: Pattern Invalidation (FAILED)")
     
     engine = WavelengthEngine()
     base_time = datetime(2024, 1, 2, 9, 30)
     
-    # Set engine to MOVE_2 manually
     engine.state = WavelengthState.MOVE_2
     engine.moves_completed = 2
     engine.participant_type = ParticipantType.BUYERS
@@ -256,7 +226,6 @@ def demo_pattern_failure():
     print("\n❌ Invalidation Scenario: Price breaks below Move 1 start")
     print("   This violates the retracement rule and invalidates the pattern")
     
-    # Price breaks below Move 1 start
     invalidation_candle = Candle(
         base_time,
         4495.0, 4500.0, 4485.0, 4488.0,  # Low < move_1_start
@@ -270,12 +239,9 @@ def demo_pattern_failure():
     print(f"   Signal Strength: {result.signal_strength:.2f}")
     print(f"\n💡 Pattern invalidated - no trade signal")
 
-
 def demo_state_machine_properties():
-    """Demonstrate FSA mathematical properties"""
     print_separator("DEMO 3: Finite-State Automaton Properties")
     
-    # Determinism
     print("\n1️⃣  DETERMINISM TEST")
     print("   Same input → Same output (reproducible)")
     
@@ -301,7 +267,6 @@ def demo_state_machine_properties():
     print(f"   Engine 2 State: {result2.state.value}")
     print(f"   ✓ Deterministic: {result1.state == result2.state}")
     
-    # Completeness
     print("\n2️⃣  COMPLETENESS TEST")
     print("   All states have defined transitions")
     
@@ -317,13 +282,11 @@ def demo_state_machine_properties():
     print(f"   States Tested: {len(states_tested)}/8")
     print(f"   ✓ Complete: All states process without error")
     
-    # Termination
     print("\n3️⃣  TERMINATION TEST")
     print("   Terminal states (COMPLETE, FAILED) don't transition further")
     
     engine = WavelengthEngine()
     
-    # Test COMPLETE
     engine.state = WavelengthState.COMPLETE
     before = engine.state
     engine.process_candle(candle)
@@ -332,7 +295,6 @@ def demo_state_machine_properties():
     print(f"   COMPLETE after:  {after.value}")
     print(f"   ✓ COMPLETE is terminal: {before == after}")
     
-    # Test FAILED
     engine.state = WavelengthState.FAILED
     before = engine.state
     engine.process_candle(candle)
@@ -341,7 +303,6 @@ def demo_state_machine_properties():
     print(f"   FAILED after:  {after.value}")
     print(f"   ✓ FAILED is terminal: {before == after}")
     
-    # Moore Machine
     print("\n4️⃣  MOORE MACHINE TEST")
     print("   Output depends only on state, not input history")
     
@@ -354,9 +315,7 @@ def demo_state_machine_properties():
     print(f"   Signal Strength: {strength}")
     print(f"   ✓ Output is function of state only")
 
-
 def main():
-    """Run all demos"""
     print("\n" + "="*70)
     print("  HORC WavelengthEngine - Implementation Demo")
     print("  AXIOM 1: Wavelength Invariant (Exactly 3 Moves)")
@@ -369,7 +328,6 @@ def main():
     print("\n" + "="*70)
     print("  Demo Complete - All AXIOM 1 Properties Validated ✓")
     print("="*70 + "\n")
-
 
 if __name__ == "__main__":
     main()

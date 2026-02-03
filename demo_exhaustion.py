@@ -1,17 +1,3 @@
-"""
-ExhaustionDetector Demonstration Script
-========================================
-
-Demonstrates AXIOM 3: Absorption Reversal detection with all 4 scoring components.
-
-This script shows:
-1. Volume absorption scoring (high volume with negative delta divergence)
-2. Candle body rejection scoring (long wicks relative to body)
-3. Price stagnation scoring (inefficient directional movement)
-4. Reversal pattern scoring (engulfing, hammer, shooting star patterns)
-5. Overall exhaustion detection with weighted combination
-"""
-
 from datetime import datetime, timedelta
 from src.engines.exhaustion import (
     ExhaustionDetector,
@@ -20,29 +6,23 @@ from src.engines.exhaustion import (
 )
 from src.engines.participant import Candle
 
-
 def print_separator(title: str):
-    """Print formatted section separator"""
     print("\n" + "=" * 80)
     print(f"  {title}")
     print("=" * 80 + "\n")
 
-
 def demo_volume_absorption():
-    """Demonstrate volume absorption scoring"""
     print_separator("DEMO 1: Volume Absorption Scoring")
     
     detector = ExhaustionDetector()
     base_time = datetime(2024, 1, 2, 9, 30)
     
-    # Create volume bars with increasing volume and positive delta (buying exhaustion)
     print("Scenario: Uptrend with increasing buying volume (absorption signal)")
     print("-" * 80)
     
     volume_bars = []
     for i in range(10):
         volume = 1000.0 + i * 300.0  # Increasing volume
-        # Positive delta (more buying) but price will stagnate
         bid_vol = volume * 0.65
         ask_vol = volume * 0.35
         
@@ -69,9 +49,7 @@ def demo_volume_absorption():
     print("  • Increasing volume with positive delta = buyers getting absorbed")
     print("  • This signals potential uptrend exhaustion")
 
-
 def demo_body_rejection():
-    """Demonstrate candle body rejection scoring"""
     print_separator("DEMO 2: Candle Body Rejection Scoring")
     
     detector = ExhaustionDetector()
@@ -82,7 +60,6 @@ def demo_body_rejection():
     
     candles = []
     
-    # Normal uptrend candles
     for i in range(4):
         candles.append(Candle(
             timestamp=base_time + timedelta(minutes=i),
@@ -95,7 +72,6 @@ def demo_body_rejection():
         print(f"Candle {i+1}: O={candles[-1].open:>6.1f}, H={candles[-1].high:>6.1f}, "
               f"L={candles[-1].low:>6.1f}, C={candles[-1].close:>6.1f} | Body={abs(candles[-1].close - candles[-1].open):.1f}")
     
-    # Add shooting star rejection candle
     rejection_candle = Candle(
         timestamp=base_time + timedelta(minutes=4),
         open=108.0,
@@ -124,9 +100,7 @@ def demo_body_rejection():
     print("  • Long upper wick shows buyers pushed high but were rejected")
     print("  • Classic exhaustion signal at uptrend top")
 
-
 def demo_price_stagnation():
-    """Demonstrate price stagnation scoring"""
     print_separator("DEMO 3: Price Stagnation Scoring")
     
     detector = ExhaustionDetector()
@@ -137,7 +111,6 @@ def demo_price_stagnation():
     
     candles = []
     
-    # Create choppy, overlapping price action
     for i in range(10):
         candles.append(Candle(
             timestamp=base_time + timedelta(minutes=i),
@@ -154,7 +127,6 @@ def demo_price_stagnation():
         elif i == 3:
             print("  ...")
     
-    # Calculate metrics
     start_price = candles[0].open
     end_price = candles[-1].close
     net_change = abs(end_price - start_price)
@@ -175,9 +147,7 @@ def demo_price_stagnation():
     print("  • Low efficiency = much movement, little progress")
     print("  • Overlapping ranges signal absorption and indecision")
 
-
 def demo_reversal_patterns():
-    """Demonstrate reversal pattern scoring"""
     print_separator("DEMO 4: Reversal Pattern Scoring")
     
     detector = ExhaustionDetector()
@@ -186,7 +156,6 @@ def demo_reversal_patterns():
     print("Scenario: Bearish engulfing pattern (strong reversal signal)")
     print("-" * 80)
     
-    # Bullish candle
     candle1 = Candle(
         timestamp=base_time,
         open=100.0,
@@ -196,7 +165,6 @@ def demo_reversal_patterns():
         volume=1000.0
     )
     
-    # Bearish engulfing candle
     candle2 = Candle(
         timestamp=base_time + timedelta(minutes=1),
         open=102.0,  # Opens at/above previous close
@@ -227,12 +195,9 @@ def demo_reversal_patterns():
     print("  • Bearish engulfing shows sellers overwhelmed buyers")
     print("  • High-probability exhaustion and reversal")
 
-
 def demo_complete_exhaustion_detection():
-    """Demonstrate complete exhaustion detection with all components"""
     print_separator("DEMO 5: Complete Exhaustion Detection (All Components)")
     
-    # Use custom config with lower threshold for demo
     config = ExhaustionConfig(threshold=0.60)
     detector = ExhaustionDetector(config)
     
@@ -241,7 +206,6 @@ def demo_complete_exhaustion_detection():
     print("Scenario: Uptrend showing multiple exhaustion signals")
     print("-" * 80)
     
-    # Create candles with stagnation and rejection
     candles = []
     for i in range(8):
         candles.append(Candle(
@@ -253,7 +217,6 @@ def demo_complete_exhaustion_detection():
             volume=1000.0
         ))
     
-    # Add rejection candle
     candles.append(Candle(
         timestamp=base_time + timedelta(minutes=8),
         open=108.0,
@@ -263,7 +226,6 @@ def demo_complete_exhaustion_detection():
         volume=2500.0
     ))
     
-    # Create volume bars with absorption
     volume_bars = []
     for i in range(9):
         volume = 1000.0 + i * 200.0
@@ -278,7 +240,6 @@ def demo_complete_exhaustion_detection():
             delta=bid_vol - ask_vol
         ))
     
-    # Run complete detection
     result = detector.detect_exhaustion(candles, volume_bars, direction="LONG")
     
     print("Exhaustion Analysis Complete!\n")
@@ -302,15 +263,12 @@ def demo_complete_exhaustion_detection():
         print("  • Continue with trend-following bias")
         print("  • Monitor for increasing exhaustion signals")
 
-
 def demo_mathematical_properties():
-    """Demonstrate mathematical properties of exhaustion detection"""
     print_separator("DEMO 6: Mathematical Properties Validation")
     
     detector = ExhaustionDetector()
     base_time = datetime(2024, 1, 2, 9, 30)
     
-    # Create test data
     candles = []
     for i in range(10):
         candles.append(Candle(
@@ -398,9 +356,7 @@ def demo_mathematical_properties():
     print(f"Match: {abs(calculated_score - result1.score) < 0.0001}")
     print(f"✓ LINEAR COMBINATION VERIFIED")
 
-
 def main():
-    """Run all demonstrations"""
     print("\n")
     print("╔" + "═" * 78 + "╗")
     print("║" + " " * 78 + "║")
@@ -417,7 +373,6 @@ def main():
     
     input("\nPress Enter to begin demonstrations...")
     
-    # Run all demos
     demo_volume_absorption()
     input("\nPress Enter to continue...")
     
@@ -445,7 +400,6 @@ def main():
     print("  4. All mathematical properties verified (determinism, bounded, convex)")
     print("  5. Based on structural market mechanics (Kyle 1985, Glosten-Milgrom 1985)")
     print("\n")
-
 
 if __name__ == "__main__":
     main()

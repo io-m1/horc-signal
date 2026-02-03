@@ -1,22 +1,3 @@
-"""
-HORC Orchestrator Demonstration
-
-End-to-end demonstration of unified signal generation.
-Shows all four engines working together to produce Pine-safe signals.
-
-SCENARIO:
-    Bullish setup with strong confluence:
-        1. Buyers sweep previous session high (Participant ID)
-        2. Wavelength enters Move 3 continuation (structural setup)
-        3. Exhaustion detected at prior level (reversal probability)
-        4. Unfilled gap above (gravitational target)
-    
-    Result: High-confidence bullish signal ready for backtesting/Pine deployment
-
-RUN:
-    python demo_orchestrator.py
-"""
-
 from datetime import datetime, timedelta
 from typing import List
 
@@ -33,20 +14,11 @@ from src.engines import (
 from src.core import HORCOrchestrator, SignalIR
 from src.core.orchestrator import OrchestratorConfig
 
-
 def create_bullish_scenario() -> tuple[List[Candle], List[Candle]]:
-    """
-    Create synthetic data for bullish signal scenario.
-    
-    Returns:
-        (spot_candles, futures_candles)
-    """
     base_time = datetime(2026, 2, 2, 9, 30)
     base_price = 4500.0
     
-    # Spot candles - showing bullish structure
     spot_candles = [
-        # Previous session for participant ID (establish opening range)
         Candle(
             timestamp=base_time - timedelta(days=1, hours=7),
             open=base_price,
@@ -56,7 +28,6 @@ def create_bullish_scenario() -> tuple[List[Candle], List[Candle]]:
             volume=10000.0
         ),
         
-        # Current session - buyers sweep high
         Candle(
             timestamp=base_time,
             open=base_price + 10.0,
@@ -66,7 +37,6 @@ def create_bullish_scenario() -> tuple[List[Candle], List[Candle]]:
             volume=15000.0  # High volume = conviction
         ),
         
-        # Move 1 continuation
         Candle(
             timestamp=base_time + timedelta(minutes=5),
             open=base_price + 23.0,
@@ -76,7 +46,6 @@ def create_bullish_scenario() -> tuple[List[Candle], List[Candle]]:
             volume=12000.0
         ),
         
-        # Move 2 reversal (pullback)
         Candle(
             timestamp=base_time + timedelta(minutes=10),
             open=base_price + 28.0,
@@ -86,7 +55,6 @@ def create_bullish_scenario() -> tuple[List[Candle], List[Candle]]:
             volume=8000.0
         ),
         
-        # Exhaustion at pullback low (absorption)
         Candle(
             timestamp=base_time + timedelta(minutes=15),
             open=base_price + 17.0,
@@ -96,7 +64,6 @@ def create_bullish_scenario() -> tuple[List[Candle], List[Candle]]:
             volume=20000.0  # Very high volume = exhaustion
         ),
         
-        # Move 3 starts (continuation to target)
         Candle(
             timestamp=base_time + timedelta(minutes=20),
             open=base_price + 16.0,
@@ -107,9 +74,7 @@ def create_bullish_scenario() -> tuple[List[Candle], List[Candle]]:
         ),
     ]
     
-    # Futures candles - with gap above for gravitational target
     futures_candles = [
-        # Previous close
         Candle(
             timestamp=base_time - timedelta(minutes=30),
             open=base_price + 40.0,
@@ -119,7 +84,6 @@ def create_bullish_scenario() -> tuple[List[Candle], List[Candle]]:
             volume=5000.0
         ),
         
-        # Gap up on open
         Candle(
             timestamp=base_time,
             open=base_price + 50.0,  # Gaps to 4550 (gap: 4540-4550)
@@ -132,9 +96,7 @@ def create_bullish_scenario() -> tuple[List[Candle], List[Candle]]:
     
     return spot_candles, futures_candles
 
-
 def print_section(title: str, char: str = "="):
-    """Print formatted section header"""
     width = 80
     print()
     print(char * width)
@@ -142,17 +104,11 @@ def print_section(title: str, char: str = "="):
     print(char * width)
     print()
 
-
 def main():
-    """Run orchestrator demonstration"""
     
     print_section("HORC ORCHESTRATOR DEMONSTRATION", "=")
     print("Unified signal generation with Pine-safe output")
     print("Scenario: Bullish setup with high confluence")
-    
-    # ===================================================================
-    # 1. Create Synthetic Data
-    # ===================================================================
     
     print_section("1. Creating Market Data", "-")
     
@@ -164,13 +120,8 @@ def main():
     print(f"First move high: ${spot_candles[1].high:.2f} (sweeps ORH ✓)")
     print(f"Futures gap: ${futures_candles[0].close:.2f} → ${futures_candles[1].open:.2f}")
     
-    # ===================================================================
-    # 2. Initialize Engines
-    # ===================================================================
-    
     print_section("2. Initializing Engines", "-")
     
-    # Participant identifier
     participant_config = {
         'opening_range_minutes': 30,
         'min_conviction_threshold': 0.5
@@ -179,7 +130,6 @@ def main():
     participant.prev_session_candles = [spot_candles[0]]  # Set previous session
     print("✓ ParticipantIdentifier initialized")
     
-    # Wavelength engine
     wavelength_config = WavelengthConfig(
         min_move_1_size_atr=0.5,
         max_move_duration_candles=10
@@ -187,7 +137,6 @@ def main():
     wavelength = WavelengthEngine(wavelength_config)
     print("✓ WavelengthEngine initialized")
     
-    # Exhaustion detector
     exhaustion_config = ExhaustionConfig(
         volume_lookback=3,
         threshold=0.7
@@ -195,7 +144,6 @@ def main():
     exhaustion = ExhaustionDetector(exhaustion_config)
     print("✓ ExhaustionDetector initialized")
     
-    # Futures gap engine
     gap_config = GapConfig(
         min_gap_size_percent=0.001,
         gap_fill_tolerance=0.5
@@ -203,7 +151,6 @@ def main():
     gap_engine = FuturesGapEngine(gap_config)
     print("✓ FuturesGapEngine initialized")
     
-    # Orchestrator
     orchestrator_config = OrchestratorConfig(
         confluence_threshold=0.75,
         participant_weight=0.30,
@@ -225,10 +172,6 @@ def main():
           f"E={orchestrator_config.exhaustion_weight:.2f}, "
           f"G={orchestrator_config.gap_weight:.2f}")
     
-    # ===================================================================
-    # 3. Process Bars
-    # ===================================================================
-    
     print_section("3. Processing Market Data Bar-by-Bar", "-")
     
     signals: List[SignalIR] = []
@@ -238,7 +181,6 @@ def main():
         print(f"  Price: O=${candle.open:.2f} H=${candle.high:.2f} "
               f"L=${candle.low:.2f} C=${candle.close:.2f} V={candle.volume:.0f}")
         
-        # Process bar
         signal = orchestrator.process_bar(
             candle=candle,
             futures_candle=futures_candles[-1] if i == 1 else None,  # Only first bar has futures
@@ -247,7 +189,6 @@ def main():
         
         signals.append(signal)
         
-        # Show signal summary
         bias_str = {-1: "BEARISH", 0: "NEUTRAL", 1: "BULLISH"}[signal.bias]
         action_icon = "🟢" if signal.actionable else "⚪"
         
@@ -260,10 +201,6 @@ def main():
         
         if signal.actionable:
             print(f"\n  ⚡ ACTIONABLE SIGNAL DETECTED ⚡")
-    
-    # ===================================================================
-    # 4. Summary
-    # ===================================================================
     
     print_section("4. Summary", "-")
     
@@ -287,28 +224,6 @@ def main():
     print("✓ Ready for Pine Script translation")
     
     print("\nPine Translation Template:")
-    print("""
-//@version=5
-indicator("HORC Signal", overlay=true)
-
-// State variables (var = persisted across bars)
-var int bias = 0
-var bool actionable = false
-var float confidence = 0.0
-
-// Process bar (orchestration logic)
-[sig_bias, sig_action, sig_conf] = process_bar()
-
-// Update state
-bias := sig_bias
-actionable := sig_action
-confidence := sig_conf
-
-// Visualization
-bgcolor(actionable ? (bias > 0 ? color.new(color.green, 90) : color.new(color.red, 90)) : na)
-plotchar(actionable, "Signal", "▲", location.belowbar, bias > 0 ? color.green : color.red)
-    """)
-    
     print_section("6. Next Steps", "-")
     
     print("✓ Phase 2A complete: Orchestration layer implemented")
@@ -320,7 +235,6 @@ plotchar(actionable, "Signal", "▲", location.belowbar, bias > 0 ? color.green 
     print("  5. Add regime filtering (Phase 2B)")
     
     print_section("END OF DEMONSTRATION", "=")
-
 
 if __name__ == "__main__":
     main()

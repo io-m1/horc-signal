@@ -1,4 +1,3 @@
-"""Validation module for HORC signal system"""
 
 from .multi_year_validation import (
     run_multi_year_validation,

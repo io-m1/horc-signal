@@ -1,4 +1,3 @@
-"""Pine Script generation module for HORC"""
 
 from .generator import (
     generate_pine_indicator,

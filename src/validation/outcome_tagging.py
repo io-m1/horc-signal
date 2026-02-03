@@ -1,33 +1,3 @@
-"""
-Outcome Tagging System for HORC Signals
-
-Tags each signal with what happened AFTER it fired.
-Converts signals → statistical evidence (no trading yet).
-
-WHAT WE MEASURE:
-    - Did price move ±X pips within N bars?
-    - Maximum favorable excursion (MFE)
-    - Maximum adverse excursion (MAE)
-    - Time to target (if hit)
-    - Win rate at various thresholds
-
-WHY THIS MATTERS:
-    - Separates "signal fires" from "signal works"
-    - Pure statistics, no optimization bias
-    - Directly informs Pine entry/exit logic
-    - Exposes regime-dependent edge
-
-CRITICAL: This is STILL not trading.
-    - No exits
-    - No position sizing
-    - No PnL calculation
-    Just: "What did price do after signal?"
-
-USAGE:
-    python -m src.validation.outcome_tagging --synthetic --days 90
-    python -m src.validation.outcome_tagging --file data/EURUSD_M1_2024.csv
-"""
-
 import os
 import sys
 from datetime import datetime
@@ -51,40 +21,28 @@ from src.engines import (
 from src.core import HORCOrchestrator, SignalIR
 from src.core.orchestrator import OrchestratorConfig
 
-
 class OutcomeType(Enum):
-    """Signal outcome classification"""
     WIN = "WIN"           # Hit target before stop
     LOSS = "LOSS"         # Hit stop before target
     TIMEOUT = "TIMEOUT"   # Neither hit within lookforward
     PENDING = "PENDING"   # Not enough future data
 
-
 @dataclass
 class SignalOutcome:
-    """
-    Complete outcome record for a single signal.
-    
-    Pine-safe: All fields are primitives.
-    """
-    # Signal metadata
     timestamp: int
     bias: int  # +1 bullish, -1 bearish
     confidence: float
     entry_price: float
     
-    # Outcome measurements (in pips for forex)
     mfe: float = 0.0       # Maximum Favorable Excursion
     mae: float = 0.0       # Maximum Adverse Excursion  
     final_move: float = 0.0  # Price change at lookforward end
     
-    # Target/stop results
     hit_target: bool = False
     hit_stop: bool = False
     bars_to_target: int = 0
     bars_to_stop: int = 0
     
-    # Classification
     outcome: OutcomeType = OutcomeType.PENDING
     
     def to_dict(self) -> dict:
@@ -103,32 +61,26 @@ class SignalOutcome:
             'outcome': self.outcome.value,
         }
 
-
 @dataclass
 class OutcomeStats:
-    """Aggregated outcome statistics"""
     total_signals: int = 0
     wins: int = 0
     losses: int = 0
     timeouts: int = 0
     
-    # MFE/MAE distributions
     avg_mfe: float = 0.0
     avg_mae: float = 0.0
     max_mfe: float = 0.0
     max_mae: float = 0.0
     
-    # Win rate at thresholds
     win_rate_10pip: float = 0.0
     win_rate_20pip: float = 0.0
     win_rate_30pip: float = 0.0
     
-    # Expectancy (R-multiple if we had 1:1 RR)
     avg_win: float = 0.0
     avg_loss: float = 0.0
     expectancy: float = 0.0
     
-    # By direction
     bull_wins: int = 0
     bull_losses: int = 0
     bear_wins: int = 0
@@ -149,9 +101,7 @@ class OutcomeStats:
         total = self.bear_wins + self.bear_losses
         return self.bear_wins / total if total > 0 else 0.0
 
-
 def create_tagging_orchestrator(threshold: float = 0.25) -> HORCOrchestrator:
-    """Create orchestrator for outcome tagging"""
     
     participant = ParticipantIdentifier()
     wavelength = WavelengthEngine(WavelengthConfig(
@@ -168,7 +118,6 @@ def create_tagging_orchestrator(threshold: float = 0.25) -> HORCOrchestrator:
     
     return HORCOrchestrator(participant, wavelength, exhaustion, gap_engine, config)
 
-
 def calculate_outcome(
     signal: SignalIR,
     entry_candle: Candle,
@@ -177,20 +126,6 @@ def calculate_outcome(
     stop_pips: float = 20.0,
     pip_value: float = 0.0001,  # For forex majors
 ) -> SignalOutcome:
-    """
-    Calculate outcome for a single signal.
-    
-    Args:
-        signal: The fired signal
-        entry_candle: Candle at signal time (entry at close)
-        future_candles: Candles AFTER signal (lookforward window)
-        target_pips: Take profit in pips
-        stop_pips: Stop loss in pips
-        pip_value: Pip size (0.0001 for most forex, 0.01 for JPY pairs)
-    
-    Returns:
-        SignalOutcome with all measurements
-    """
     entry_price = entry_candle.close
     direction = signal.bias  # +1 or -1
     
@@ -205,13 +140,10 @@ def calculate_outcome(
         outcome.outcome = OutcomeType.PENDING
         return outcome
     
-    # Convert pips to price
     target_price_diff = target_pips * pip_value
     stop_price_diff = stop_pips * pip_value
     
-    # Track MFE/MAE through time
     for i, candle in enumerate(future_candles):
-        # Price change from entry (signed by direction)
         if direction > 0:  # Bullish
             favorable = (candle.high - entry_price) / pip_value
             adverse = (entry_price - candle.low) / pip_value
@@ -221,39 +153,30 @@ def calculate_outcome(
             adverse = (candle.high - entry_price) / pip_value
             current_move = (entry_price - candle.close) / pip_value
         
-        # Update MFE/MAE
         if favorable > outcome.mfe:
             outcome.mfe = favorable
         if adverse > outcome.mae:
             outcome.mae = adverse
         
-        # Check target hit
         if not outcome.hit_target and favorable >= target_pips:
             outcome.hit_target = True
             outcome.bars_to_target = i + 1
         
-        # Check stop hit
         if not outcome.hit_stop and adverse >= stop_pips:
             outcome.hit_stop = True
             outcome.bars_to_stop = i + 1
         
-        # If both hit, we need to determine which came first
-        # (simplified: use bar index, in reality would need intrabar data)
-    
-    # Final move at end of lookforward
     last_candle = future_candles[-1]
     if direction > 0:
         outcome.final_move = (last_candle.close - entry_price) / pip_value
     else:
         outcome.final_move = (entry_price - last_candle.close) / pip_value
     
-    # Classify outcome
     if outcome.hit_target and not outcome.hit_stop:
         outcome.outcome = OutcomeType.WIN
     elif outcome.hit_stop and not outcome.hit_target:
         outcome.outcome = OutcomeType.LOSS
     elif outcome.hit_target and outcome.hit_stop:
-        # Both hit - use which came first
         if outcome.bars_to_target <= outcome.bars_to_stop:
             outcome.outcome = OutcomeType.WIN
         else:
@@ -262,7 +185,6 @@ def calculate_outcome(
         outcome.outcome = OutcomeType.TIMEOUT
     
     return outcome
-
 
 def run_outcome_tagging(
     candles: List[Candle],
@@ -273,18 +195,11 @@ def run_outcome_tagging(
     session_bars: int = 96,
     pip_value: float = 0.0001,
 ) -> Tuple[List[SignalOutcome], OutcomeStats]:
-    """
-    Run outcome tagging on historical data.
-    
-    Returns:
-        (list of outcomes, aggregated stats)
-    """
     orchestrator = create_tagging_orchestrator(threshold)
     outcomes: List[SignalOutcome] = []
     
     warmup = session_bars * 2
     
-    # First pass: collect signals
     signals_with_index: List[Tuple[int, SignalIR, Candle]] = []
     
     for i, candle in enumerate(candles):
@@ -301,9 +216,7 @@ def run_outcome_tagging(
         if signal.actionable:
             signals_with_index.append((i, signal, candle))
     
-    # Second pass: tag outcomes
     for idx, signal, entry_candle in signals_with_index:
-        # Get future candles
         future_start = idx + 1
         future_end = min(idx + 1 + lookforward_bars, len(candles))
         future_candles = candles[future_start:future_end]
@@ -314,17 +227,14 @@ def run_outcome_tagging(
         )
         outcomes.append(outcome)
     
-    # Calculate stats
     stats = calculate_outcome_stats(outcomes, target_pips)
     
     return outcomes, stats
-
 
 def calculate_outcome_stats(
     outcomes: List[SignalOutcome],
     base_target: float = 20.0,
 ) -> OutcomeStats:
-    """Calculate aggregated statistics from outcomes"""
     
     stats = OutcomeStats()
     stats.total_signals = len(outcomes)
@@ -337,7 +247,6 @@ def calculate_outcome_stats(
     win_moves = []
     loss_moves = []
     
-    # Count outcomes
     for o in outcomes:
         mfe_sum += o.mfe
         mae_sum += o.mae
@@ -366,7 +275,6 @@ def calculate_outcome_stats(
         elif o.outcome == OutcomeType.TIMEOUT:
             stats.timeouts += 1
     
-    # Averages
     stats.avg_mfe = mfe_sum / len(outcomes)
     stats.avg_mae = mae_sum / len(outcomes)
     
@@ -375,18 +283,15 @@ def calculate_outcome_stats(
     if loss_moves:
         stats.avg_loss = sum(loss_moves) / len(loss_moves)
     
-    # Win rates at thresholds
     stats.win_rate_10pip = sum(1 for o in outcomes if o.mfe >= 10) / len(outcomes)
     stats.win_rate_20pip = sum(1 for o in outcomes if o.mfe >= 20) / len(outcomes)
     stats.win_rate_30pip = sum(1 for o in outcomes if o.mfe >= 30) / len(outcomes)
     
-    # Expectancy (simplified: using win rate and avg win/loss)
     if stats.wins + stats.losses > 0:
         wr = stats.win_rate
         stats.expectancy = (wr * stats.avg_win) - ((1 - wr) * stats.avg_loss)
     
     return stats
-
 
 def print_outcome_report(
     outcomes: List[SignalOutcome],
@@ -394,7 +299,6 @@ def print_outcome_report(
     target_pips: float,
     stop_pips: float,
 ):
-    """Print comprehensive outcome report"""
     
     print("\n" + "=" * 80)
     print("  HORC OUTCOME TAGGING REPORT")
@@ -458,7 +362,6 @@ def print_outcome_report(
     
     print("\n" + "=" * 80)
     
-    # Actionable insights
     print("\n🎯 ACTIONABLE INSIGHTS")
     print("-" * 60)
     
@@ -474,7 +377,6 @@ def print_outcome_report(
     
     if stats.timeouts > stats.wins:
         print(f"   → Many timeouts - consider extending lookforward or reducing target")
-
 
 def main():
     import argparse
@@ -495,7 +397,6 @@ def main():
     print("  HORC OUTCOME TAGGING")
     print("=" * 80)
     
-    # Load data
     if args.synthetic:
         print(f"\n🔧 Generating {args.days} days of synthetic data...")
         candles = generate_synthetic_data(
@@ -513,7 +414,6 @@ def main():
     
     print(f"   Loaded {len(candles):,} candles")
     
-    # Run tagging
     print(f"\n🚀 Running outcome tagging...")
     print(f"   Target: {args.target} pips | Stop: {args.stop} pips")
     print(f"   Lookforward: {args.lookforward} bars")
@@ -526,10 +426,8 @@ def main():
         lookforward_bars=args.lookforward,
     )
     
-    # Print report
     print_outcome_report(outcomes, stats, args.target, args.stop)
     
-    # Next steps
     print("\n🎯 NEXT STEPS:")
     if stats.expectancy > 0:
         print("   ✅ Positive expectancy found!")
@@ -541,7 +439,6 @@ def main():
         print("   1. Adjust confluence threshold")
         print("   2. Review signal gating logic")
         print("   3. Try different target/stop ratios")
-
 
 if __name__ == "__main__":
     main()

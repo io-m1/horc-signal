@@ -1,23 +1,3 @@
-"""
-Pine-Safe Enum Contracts
-
-CRITICAL: These numeric mappings are LOCKED FOREVER.
-Once deployed to Pine Script, changing these numbers breaks deployed indicators.
-
-RULE: Never renumber. Never reorder. Only append.
-
-Pine Translation:
-    These constants map 1:1 to Pine Script const int declarations.
-    
-    Pine example:
-        const int WL_INIT = 0
-        const int WL_MOVE_1_AGGRESSIVE = 1
-        ...
-"""
-
-# ==============================================================================
-# WAVELENGTH STATE MACHINE
-# ==============================================================================
 
 WAVELENGTH_STATE = {
     "INIT": 0,                      # PRE_OR in engine
@@ -30,13 +10,7 @@ WAVELENGTH_STATE = {
     "INVALIDATED": 7,               # Pattern failed
 }
 
-# Reverse mapping for display
 WAVELENGTH_STATE_NAMES = {v: k for k, v in WAVELENGTH_STATE.items()}
-
-
-# ==============================================================================
-# GAP TYPE CLASSIFICATION
-# ==============================================================================
 
 GAP_TYPE = {
     "NONE": 0,
@@ -50,13 +24,7 @@ GAP_TYPE = {
     "EXHAUSTION_DOWN": 8,
 }
 
-# Reverse mapping for display
 GAP_TYPE_NAMES = {v: k for k, v in GAP_TYPE.items()}
-
-
-# ==============================================================================
-# BIAS SIGNALS
-# ==============================================================================
 
 BIAS = {
     "BEARISH": -1,
@@ -64,21 +32,11 @@ BIAS = {
     "BULLISH": 1,
 }
 
-
-# ==============================================================================
-# PARTICIPANT CONTROL
-# ==============================================================================
-
 PARTICIPANT_CONTROL = {
     "SELLERS": -1,
     "NEUTRAL": 0,
     "BUYERS": 1,
 }
-
-
-# ==============================================================================
-# TIMEFRAME HIERARCHY (for liquidity & control resolution)
-# ==============================================================================
 
 TIMEFRAME = {
     "M1": 1,
@@ -95,28 +53,17 @@ TIMEFRAME = {
     "MN": 43200,
 }
 
-# Hierarchy order (higher = more authoritative)
 TIMEFRAME_RANK = {
     "M1": 0, "M5": 1, "M15": 2, "M30": 3,
     "H1": 4, "H4": 5, "H6": 6, "H8": 7, "H12": 8,
     "D1": 9, "W1": 10, "MN": 11,
 }
 
-
-# ==============================================================================
-# LIQUIDITY INTENT (TOP OF DECISION STACK)
-# ==============================================================================
-
 LIQUIDITY_DIRECTION = {
     "NONE": 0,
     "SELL_SIDE": -1,      # Targeting sell-side liquidity (lows)
     "BUY_SIDE": 1,        # Targeting buy-side liquidity (highs)
 }
-
-
-# ==============================================================================
-# MARKET CONTROL STATE (AGGRESSOR VS PASSIVE)
-# ==============================================================================
 
 MARKET_CONTROL = {
     "INCONCLUSIVE": 0,
@@ -126,13 +73,7 @@ MARKET_CONTROL = {
     "SELLERS_PASSIVE": -2,
 }
 
-# Reverse mapping for display
 MARKET_CONTROL_NAMES = {v: k for k, v in MARKET_CONTROL.items()}
-
-
-# ==============================================================================
-# DEBUG FLAGS (BITFIELD)
-# ==============================================================================
 
 DEBUG_FLAGS = {
     "PARTICIPANT_SWEEP": 0x01,      # Bit 0: Sweep detected
