@@ -308,6 +308,16 @@ class ExhaustionDetector:
         
         threshold_met = total_score >= self.config.threshold
         
+        details = (
+            f"Overall Score: {total_score:.2f}\n"
+            f"Component Scores:\n"
+            f"  Volume Absorption: {volume_score:.2f}\n"
+            f"  Body Rejection: {body_score:.2f}\n"
+            f"  Price Stagnation: {price_score:.2f}\n"
+            f"  Reversal Patterns: {reversal_score:.2f}\n"
+            f"Threshold Met: {threshold_met}"
+        )
+        
         return ExhaustionResult(
             score=total_score,
             volume_score=volume_score,

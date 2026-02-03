@@ -313,6 +313,18 @@ class FuturesGapEngine:
         gap_age_str = f"{nearest_gap.age_days(current_date):.1f} days" if nearest_gap else "N/A"
         distance_str = f"${distance:.2f}" if nearest_gap else "N/A"
         
+        details = (
+            f"Gap Analysis Summary:\n"
+            f"  Total Gaps Detected: {total_gaps}\n"
+            f"  Unfilled Gaps: {unfilled_count}\n"
+            f"  Target Price: {target_str}\n"
+            f"  Nearest Gap: {nearest_str} ({gap_type_str})\n"
+            f"  Gap Age: {gap_age_str}\n"
+            f"  Distance to Gap: {distance_str}\n"
+            f"  Fill Probability: {fill_prob:.1%}\n"
+            f"  Gravitational Pull: {grav_pull:.2f}"
+        )
+        
         return GapAnalysisResult(
             target_price=target,
             nearest_gap=nearest_gap,
