@@ -162,9 +162,12 @@ if participant != NONE
 
 hist_val = participant == BUYER ? cps : participant == SELLER ? -cps : 0.0
 
+defended_holds = participant == SELLER ? close > defended * 0.995 : close < defended * 1.005
+compression = rng < atr * 0.8
+
 contra_move = (participant == SELLER and close > move_ext) or (participant == BUYER and close < move_ext)
 
-cont_sig = contra_move and abs_type == ABS_INTERNAL and cps >= cps_threshold and intent_aligned
+cont_sig = defended_holds and abs_type == ABS_INTERNAL and cps >= cps_threshold and intent_aligned and compression
 rev_sig = contra_move and abs_type == ABS_EXTERNAL and cps >= cps_threshold + 0.10 and intent_aligned
 
 buy_sig = cont_sig and participant == SELLER
