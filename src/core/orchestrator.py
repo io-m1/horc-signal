@@ -44,14 +44,15 @@ from ..logging.trade_logger import trade_logger
 
 @dataclass
 class OrchestratorConfig:
-    confluence_threshold: float = 0.75
-    participant_weight: float = 0.30
-    wavelength_weight: float = 0.25
-    exhaustion_weight: float = 0.25
-    gap_weight: float = 0.20
-    require_agreement: bool = True
+    confluence_threshold: float = 0.30
+    participant_weight: float = 0.50
+    wavelength_weight: float = 0.20
+    exhaustion_weight: float = 0.20
+    gap_weight: float = 0.10
+    require_agreement: bool = False
     regime_filter_enabled: bool = False
     min_wavelength_moves: int = 1
+    require_strategic_context: bool = False
     
     def __post_init__(self):
         if not (0.0 <= self.confluence_threshold <= 1.0):
@@ -273,7 +274,7 @@ class HORCOrchestrator:
             gap_res
         )
         
-        strategic_valid = self.strategic_context.valid
+        strategic_valid = self.strategic_context.valid if self.config.require_strategic_context else True
         
         actionable = self._is_actionable(confluence, bias) and strategic_valid
         

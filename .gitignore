@@ -3,3 +3,4 @@ logs/trade_logs.csv
 data/*.txt
 data/*.json
 logs/*.csv
+data/EURUSD_M1_RTH.csv

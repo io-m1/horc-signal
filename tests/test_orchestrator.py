@@ -308,11 +308,13 @@ class TestOrchestratorConfig:
     def test_default_config(self):
         config = OrchestratorConfig()
         
-        assert config.confluence_threshold == 0.75
-        assert config.participant_weight == 0.30
-        assert config.wavelength_weight == 0.25
-        assert config.exhaustion_weight == 0.25
-        assert config.gap_weight == 0.20
+        assert config.confluence_threshold == 0.30
+        assert config.participant_weight == 0.50
+        assert config.wavelength_weight == 0.20
+        assert config.exhaustion_weight == 0.20
+        assert config.gap_weight == 0.10
+        assert config.require_agreement == False
+        assert config.require_strategic_context == False
     
     def test_weights_must_sum_to_one(self):
         config = OrchestratorConfig(

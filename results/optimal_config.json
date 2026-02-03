@@ -1,21 +1,47 @@
 {
-  "name": "Participant-Heavy",
-  "confluence_threshold": 0.4,
-  "participant_weight": 0.5,
-  "wavelength_weight": 0.2,
-  "exhaustion_weight": 0.2,
-  "gap_weight": 0.1,
-  "participant_conviction": 0.3,
-  "wavelength_move1_atr": 0.3,
-  "exhaustion_threshold": 0.6,
-  "performance": {
-    "signals": 0,
-    "trades": 0,
-    "win_rate": 0.0,
-    "avg_pnl_r": 0.0,
-    "total_pnl_r": 0.0,
-    "max_drawdown_r": 0.0,
-    "sharpe_ratio": 0.0,
-    "quality_score": 0.0
+  "name": "HORC Calibrated v1.0",
+  "description": "Best performing configuration from extensive calibration testing",
+  "status": "RESEARCH_PHASE",
+  "warning": "Current single-TF mode shows marginal edge. Multi-TF strategic context recommended.",
+  
+  "trade_management": {
+    "target_r": 1.0,
+    "stop_atr_multiplier": 1.0,
+    "risk_reward_ratio": "1:1"
+  },
+  
+  "signal_filters": {
+    "signal_window_start_minutes": 30,
+    "signal_window_end_minutes": 120,
+    "description": "10:00-11:30 AM after opening range"
+  },
+  
+  "orchestrator_config": {
+    "confluence_threshold": 0.30,
+    "participant_weight": 0.50,
+    "wavelength_weight": 0.20,
+    "exhaustion_weight": 0.20,
+    "gap_weight": 0.10,
+    "require_agreement": false,
+    "require_strategic_context": false
+  },
+  
+  "validation_results": {
+    "dataset": "EURUSD M1 RTH (135,431 bars, 486 days)",
+    "total_trades": 4341,
+    "win_rate_percent": 50.2,
+    "avg_pnl_r": 0.004,
+    "total_pnl_r": 19.0,
+    "profit_factor": 1.01,
+    "max_drawdown_r": "~50R estimated",
+    "trades_per_week": 62.5,
+    "edge_assessment": "MARGINAL - near break-even"
+  },
+  
+  "recommendations": {
+    "1": "Use with multi-timeframe strategic context for stronger signals",
+    "2": "Consider as a filtering mechanism rather than standalone signal generator",
+    "3": "Paper trade extensively before live deployment",
+    "4": "Combine with higher-timeframe trend/structure analysis"
   }
 }
