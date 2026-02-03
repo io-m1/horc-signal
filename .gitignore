@@ -4,3 +4,4 @@ data/*.txt
 data/*.json
 logs/*.csv
 data/EURUSD_M1_RTH.csv
+.venv/
