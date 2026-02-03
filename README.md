@@ -1,88 +1,81 @@
-# HORC Signal v1.0
+## HORC Signal System
 
-High Order Range Confluence - Deterministic Trading Signal System
+High Order Range Confluence trading signal system built on four market axioms.
 
-## Core Axioms
+### Core Axioms
 
-1. **Participant Control** - Market participant identification via liquidity sweeps
-2. **Wavelength Structure** - Multi-phase price progression tracking (3-move cycle)
-3. **Exhaustion Detection** - Emission-based absorption analysis
-4. **Gap Mechanics** - Futures gap gravitational targeting
+1. Participant Control via opening range liquidity sweeps
+2. Wavelength Structure tracking 3-phase price progression
+3. Exhaustion Detection through emission absorption analysis
+4. Gap Mechanics using futures gap gravitational targeting
 
-## Installation
+### Installation
 
-```bash
+```
 pip install -r requirements.txt
 ```
 
-## Quick Start
+### Quick Start
 
-```bash
-python demo_orchestrator.py
-python demo_participant.py
-python demo_wavelength.py
-python demo_exhaustion.py
-python demo_gaps.py
+```
 python run_validation.py
-```
-
-## Architecture
-
-```
-Market Data → [4 Core Engines] → Orchestrator → Signal IR → Output
-                                      ↑
-                              Confluence Scoring
-```
-
-### Core Engines
-
-- **Participant Engine** - Opening range sweeps
-- **Wavelength Engine** - Structural progression  
-- **Exhaustion Engine** - Emission absorption
-- **Gap Engine** - Futures gap tracking
-
-### Orchestrator
-
-Unified signal generation with confluence scoring:
-- Weighted contribution from each engine
-- Majority vote bias determination
-- Regime-aware filtering (optional)
-- Pine-safe state management
-
-## Signal Generation
-
-Requirements for actionable signals:
-- Confluence score ≥ 0.75 (configurable)
-- Clear directional bias (≥2 engines agree)
-- Absorption confirmation at defended liquidity
-- Regime filter pass (if enabled)
-
-## Configuration
-
-Key parameters:
-- `confluence_threshold` - Minimum score (default 0.75)
-- `participant_weight` - Weight for participant control (default 0.30)
-- `wavelength_weight` - Weight for wavelength (default 0.25)
-- `exhaustion_weight` - Weight for exhaustion (default 0.25)
-- `gap_weight` - Weight for gap pull (default 0.20)
-
-## Pine Script
-
-TradingView implementation: `horc_signal_lite.pine`
-
-## Data Sources
-
-Supported adapters:
-- Interactive Brokers
-- Polygon.io
-- Historical CSV
-
-## Testing
-
-```bash
+python realistic_m1_test.py
 pytest tests/
 ```
 
-## License
+### Architecture
 
-Proprietary - All Rights Reserved
+```
+Market Data -> 4 Engines -> Orchestrator -> Signal IR -> Output
+                                 |
+                         Confluence Scoring
+```
+
+Engines: Participant, Wavelength, Exhaustion, Gap
+
+### Configuration
+
+OrchestratorConfig parameters:
+- confluence_threshold: 0.30 (minimum score for signal)
+- participant_weight: 0.50
+- wavelength_weight: 0.20
+- exhaustion_weight: 0.20
+- gap_weight: 0.10
+- require_agreement: False
+
+### Pine Script
+
+TradingView implementation: horc_signal.pine
+
+MACD/RSI-style histogram display with signal line overlay.
+
+### Data
+
+Real data in data/ folder:
+- EURUSD_M1_RTH.csv (486 days, 546MB)
+- GBPUSD_M1.csv (28MB)
+
+Supported adapters: Interactive Brokers, Polygon.io, Historical CSV
+
+### Project Structure
+
+```
+src/core/       Core engine implementations
+src/engines/    High-level engine wrappers
+src/data/       Data adapters
+src/validation/ Backtesting and validation
+tests/          Unit tests (200 passing)
+```
+
+### Performance
+
+Baseline HORC on EURUSD M1:
+- Win Rate: 39.6%
+- Profit Factor: 0.99
+- Break-even R:R: 1.5:1 at 40% WR
+
+System designed for multi-TF confluence, not single-TF standalone.
+
+### License
+
+Proprietary
