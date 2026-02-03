@@ -13,6 +13,7 @@ from src.engines import (
 )
 from src.core import HORCOrchestrator, SignalIR
 from src.core.orchestrator import OrchestratorConfig
+from src.logging import init_trade_logger
 
 def create_bullish_scenario() -> tuple[List[Candle], List[Candle]]:
     base_time = datetime(2026, 2, 2, 9, 30)
@@ -166,6 +167,13 @@ def main():
         orchestrator_config
     )
     print("✓ HORCOrchestrator initialized")
+    # Initialize optional trade logging (controlled via env vars)
+    trade_logger = init_trade_logger()
+    try:
+        if getattr(trade_logger, "enable", False):
+            print(f"✓ Trade logging enabled -> {trade_logger.path}")
+    except Exception:
+        pass
     print(f"\nConfluence threshold: {orchestrator_config.confluence_threshold:.2f}")
     print(f"Weights: P={orchestrator_config.participant_weight:.2f}, "
           f"W={orchestrator_config.wavelength_weight:.2f}, "

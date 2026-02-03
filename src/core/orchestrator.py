@@ -40,6 +40,7 @@ from .quadrant import (
     is_tf_eligible,
     get_preferred_logic,
 )
+from ..logging.trade_logger import trade_logger
 
 @dataclass
 class OrchestratorConfig:
@@ -321,6 +322,17 @@ class HORCOrchestrator:
         self._validate_ir(signal)
         
         self.prev_signal = signal
+        # Emit an optional trade-log row for auditing/validation
+        try:
+            if trade_logger and getattr(trade_logger, "enable", False):
+                try:
+                    trade_logger.log(signal, candle, bars_processed=self.bars_processed)
+                except Exception:
+                    # Do not let logging interfere with core logic
+                    pass
+        except Exception:
+            pass
+
         return signal
     
     def _calculate_confluence(
