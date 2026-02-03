@@ -167,7 +167,9 @@ if wl_state == "MOVE2"
         wick_sc = rng > 0 ? lower_wick / rng : 0
         exhaust := (1.0 - body_rat) * 0.5 + wick_sc * 0.5
     
-    if exhaust > 0.35
+    exhaust_gated = exhaust > 0.35 and rng > atr * 0.3
+    
+    if exhaust_gated
         flip_pt := move2_ext
         flip_bar := bar_index
         wl_state := "FLIP"
@@ -181,14 +183,18 @@ if wl_state == "MOVE2"
             if retrace < 0.5
                 is_internal := true
                 abs_type := ABS_INTERNAL
-            else
+            else if retrace >= 0.5
                 is_external := true
                 abs_type := ABS_EXTERNAL
+            else
+                abs_type := ABS_EXHAUSTION
 
 if wl_state == "FLIP"
     bars_s = bar_index - flip_bar
     if bars_s > 20
         wl_state := "FAIL"
+        intent := 0.0
+        intent_bars := 0
     else
         confirmed = false
         if participant == SELLER
@@ -206,9 +212,13 @@ if wl_state == "MOVE3"
     if participant == SELLER
         if close > defended
             wl_state := "COMPLETE"
+            intent := 0.0
+            intent_bars := 0
     else
         if close < defended
             wl_state := "COMPLETE"
+            intent := 0.0
+            intent_bars := 0
 
 if participant != NONE
     force = 0.0
@@ -220,15 +230,24 @@ if participant != NONE
     intent += force * 0.1
     intent *= 0.995
     
-    if (intent > 0 and intent[1] > 0) or (intent < 0 and intent[1] < 0)
-        intent_bars += 1
-    else
-        intent_bars := 0
-
-if not na(move1_ext) and not na(move2_ext) and participant != NONE
-    passive_dir = participant == SELLER ? 1 : -1
-    aggr_dir = participant
+    irice_progress = math.abs(close - defended)
+    effort = vol_rat
     
+    expected_progress = effort * atr
+    actual_progress = price_progress
+    
+    efficiency = expected_progress > 0 ? actual_progress / expected_progress : 1.0
+    
+    if efficiency < 0.5
+        div_score := 0.7
+        if abs_type == ABS_EXTERNAL
+            div_score := 0.85
+        else if abs_type == ABS_INTERNAL
+            div_score := 0.4
+    else if efficiency < 0.8
+        div_score := 0.3
+    else
+        div_score := 0.0
     if passive_dir != aggr_dir
         div_score := 0.5
         if abs_type == ABS_EXTERNAL
@@ -261,14 +280,20 @@ hist_val = participant == BUYER ? cps : participant == SELLER ? -cps : 0.0
 buy_cond = wl_state == "MOVE3" and participant == SELLER and cps >= cps_threshold and sig_dir != 1
 sell_cond = wl_state == "MOVE3" and participant == BUYER and cps >= cps_threshold and sig_dir != -1
 
-cont_buy = is_internal and participant == BUYER and wl_state == "FLIP" and cps >= cps_threshold * 0.9 and sig_dir != 1
-cont_sell = is_internal and participant == SELLER and wl_state == "FLIP" and cps >= cps_threshold * 0.9 and sig_dir != -1
+contbars_since_or = bar_index - or_bar
+    or_relevant = bars_since_or < 50
+    sl_ref = or_relevant ? math.min(orl, flip_pt) : flip_pt
+    sl_px := sl_ref - atr * 0.5
+    tp_px := entry_px + (entry_px - sl_px) * 2.0
+    wl_state := "ACTIVE"
 
-buy_sig = buy_cond or cont_buy
-sell_sig = sell_cond or cont_sell
-
-if buy_sig and sig_dir != 1
-    sig_dir := 1
+if sell_sig and sig_dir != -1
+    sig_dir := -1
+    entry_px := close
+    bars_since_or = bar_index - or_bar
+    or_relevant = bars_since_or < 50
+    sl_ref = or_relevant ? math.max(orh, flip_pt) : flip_pt
+    sl_px := sl_ref
     entry_px := close
     sl_px := math.min(orl, flip_pt) - atr * 0.5
     tp_px := entry_px + (entry_px - sl_px) * 2.0
