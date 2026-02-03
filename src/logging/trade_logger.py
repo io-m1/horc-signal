@@ -2,7 +2,7 @@ import os
 import csv
 import json
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 DEFAULT_PATH = os.environ.get("HORC_TRADE_LOG_PATH", "logs/trade_logs.csv")
@@ -69,7 +69,7 @@ class _TradeLogger:
 
         row = {
             "timestamp_ms": int(signal_ir.timestamp),
-            "iso": datetime.utcfromtimestamp(signal_ir.timestamp / 1000.0).isoformat() + "Z",
+            "iso": datetime.fromtimestamp(signal_ir.timestamp / 1000.0, tz=timezone.utc).isoformat().replace("+00:00", "Z"),
             "bias": int(signal_ir.bias),
             "actionable": bool(signal_ir.actionable),
             "confidence": float(signal_ir.confidence),
