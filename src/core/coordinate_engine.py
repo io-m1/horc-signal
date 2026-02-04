@@ -1,3 +1,25 @@
+    @staticmethod
+    def apply_crl(prev_high: float, prev_low: float, new_open: float, prev_participant: int) -> int:
+        if new_open > prev_high:
+            return 1
+        elif new_open < prev_low:
+            return -1
+        else:
+            return prev_participant
+
+    @staticmethod
+    def label(participant: int, open_val: float, close_val: float) -> str:
+        sponsor = "B" if participant == 1 else "S" if participant == -1 else "?"
+        charge = "+" if close_val > open_val else "-" if close_val < open_val else "0"
+        return f"{sponsor}{charge}"
+
+    @staticmethod
+    def convergence(states: List[int], session_state: int) -> int:
+        return sum(1 for s in states if s == session_state)
+
+    @staticmethod
+    def divergence(states: List[int], session_state: int) -> int:
+        return sum(1 for s in states if s != session_state and s != 0)
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 

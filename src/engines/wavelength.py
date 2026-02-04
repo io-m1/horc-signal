@@ -1,3 +1,25 @@
+    @staticmethod
+    def apply_crl(prev_high: float, prev_low: float, new_open: float, prev_participant: ParticipantType) -> ParticipantType:
+        if new_open > prev_high:
+            return ParticipantType.BUYERS
+        elif new_open < prev_low:
+            return ParticipantType.SELLERS
+        else:
+            return prev_participant
+
+    @staticmethod
+    def label(participant: ParticipantType, open_val: float, close_val: float) -> str:
+        sponsor = "B" if participant == ParticipantType.BUYERS else "S" if participant == ParticipantType.SELLERS else "?"
+        charge = "+" if close_val > open_val else "-" if close_val < open_val else "0"
+        return f"{sponsor}{charge}"
+
+    @staticmethod
+    def convergence(states: List[ParticipantType], session_state: ParticipantType) -> int:
+        return sum(1 for s in states if s == session_state)
+
+    @staticmethod
+    def divergence(states: List[ParticipantType], session_state: ParticipantType) -> int:
+        return sum(1 for s in states if s != session_state and s != ParticipantType.NONE)
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional, Tuple

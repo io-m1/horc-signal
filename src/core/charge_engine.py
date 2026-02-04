@@ -1,3 +1,16 @@
+    @staticmethod
+    def label(charge: int, open_val: float, close_val: float) -> str:
+        sponsor = "B" if charge == Charge.POSITIVE else "S" if charge == Charge.NEGATIVE else "?"
+        charge_sign = "+" if close_val > open_val else "-" if close_val < open_val else "0"
+        return f"{sponsor}{charge_sign}"
+
+    @staticmethod
+    def convergence(charges: List[int], session_charge: int) -> int:
+        return sum(1 for c in charges if c == session_charge)
+
+    @staticmethod
+    def divergence(charges: List[int], session_charge: int) -> int:
+        return sum(1 for c in charges if c != session_charge and c != Charge.NEUTRAL)
 from dataclasses import dataclass
 from typing import Dict, Optional
 
