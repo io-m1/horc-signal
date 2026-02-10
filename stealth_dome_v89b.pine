@@ -1,0 +1,231 @@
+//@version=6
+indicator("HORC x CRT Hybrid: Stealth Dome v8.9b [Beginner Friendly]", overlay=true, max_boxes_count=500, max_lines_count=500)
+
+NEUTRAL = 0
+BUYER   = 1
+SELLER  = -1
+
+group_horc = "HORC COMPASS"
+ltf       = input.timeframe("5", "First Raid Pulse TF", group=group_horc)
+tf_daily_tier = array.from("D", "720", "480", "360") 
+tf_session_tier = array.from("240", "180", "120", "60")
+
+group_crt = "CRT TRIGGER"
+useCRT    = input.bool(true, "Active CRT Filter", group=group_crt)
+crtTF     = input.timeframe("", "CRT Candle TF", group=group_crt)
+box_len   = input.int(10, "Box Look-Ahead Bars", group=group_crt)
+min_div   = input.int(2, "Min Divergence Score", group=group_crt)
+atr_mult  = input.float(0.3, "ATR SL Buffer (Beginner Friendly)", group=group_crt)
+
+useKZ     = input.bool(true, "Filter by Kill Zones", group="TIME FILTERS")
+kzSession = input.session("0200-0500,0700-1000,2000-0000", "London, NY, Asia (UTC-5)", group="TIME FILTERS")
+
+use_pd_filter = input.bool(true, "Filter by Premium/Discount", group=group_crt, tooltip="Only take BUYs in Discount, SELLs in Premium based on Conclusive Daily Flow.")
+show_pd_info  = input.bool(true, "Show P/D State on Dashboard", group=group_crt)
+
+var map<string, int> tf_history = map.new<string, int>()
+
+if barstate.isfirst
+    for tf in tf_daily_tier
+        map.put(tf_history, tf, NEUTRAL)
+    for tf in tf_session_tier
+        map.put(tf_history, tf, NEUTRAL)
+
+var int prev_day_final_sig = NEUTRAL
+var int curr_day_sig       = NEUTRAL
+var bool day_is_conclusive = false
+var float day_open_high    = na
+var float day_open_low     = na
+
+var int p_liq_type         = NEUTRAL
+var float p_liq_price      = na
+var float range_extreme    = na
+
+var bool range_active      = false
+var bool target_met        = false
+
+bool is_new_day = ta.change(time("D")) != 0
+
+if is_new_day
+    prev_day_final_sig := day_is_conclusive ? curr_day_sig : prev_day_final_sig
+    curr_day_sig := NEUTRAL
+    day_is_conclusive := false
+    target_met := false
+    range_active := false
+    day_open_high := high
+    day_open_low := low
+
+if not is_new_day and curr_day_sig == NEUTRAL
+    if high > day_open_high
+        curr_day_sig := BUYER
+        if prev_day_final_sig == SELLER or prev_day_final_sig == NEUTRAL
+            target_met := true
+    else if low < day_open_low
+        curr_day_sig := SELLER
+        if prev_day_final_sig == BUYER or prev_day_final_sig == NEUTRAL
+            target_met := true
+
+if curr_day_sig == BUYER and low < day_open_low
+    target_met := true
+if curr_day_sig == SELLER and high > day_open_high
+    target_met := true
+
+day_is_conclusive := curr_day_sig != NEUTRAL and target_met
+
+if day_is_conclusive and not range_active
+    p_liq_type := curr_day_sig
+    p_liq_price := curr_day_sig == BUYER ? day_open_low : day_open_high
+    range_extreme := close
+    range_active := true
+
+if p_liq_type == BUYER
+    range_extreme := math.max(nz(range_extreme, high), high)
+else if p_liq_type == SELLER
+    range_extreme := math.min(nz(range_extreme, low), low)
+
+string range_status = "NEUTRAL"
+float mid_point = na
+
+if p_liq_type != NEUTRAL
+    float r_high = p_liq_type == SELLER ? p_liq_price : range_extreme
+    float r_low  = p_liq_type == BUYER ? p_liq_price : range_extreme
+    mid_point := (r_high + r_low) / 2
+    range_status := close > mid_point ? "PREMIUM" : "DISCOUNT"
+
+f_scan(refH, refL) =>
+    int sig = NEUTRAL
+    float ltfH = request.security(syminfo.tickerid, ltf, high, barmerge.gaps_off, barmerge.lookahead_off)
+    float ltfL = request.security(syminfo.tickerid, ltf, low,  barmerge.gaps_off, barmerge.lookahead_off)
+    if ltfH > refH
+        sig := BUYER
+    else if ltfL < refL
+        sig := SELLER
+    sig
+
+f_horc(string tf) =>
+    float rH = request.security(syminfo.tickerid, tf, high[1], barmerge.gaps_off, barmerge.lookahead_off)
+    float rL = request.security(syminfo.tickerid, tf, low[1], barmerge.gaps_off, barmerge.lookahead_off)
+    bool np = ta.change(time(tf)) != 0
+    int raid = f_scan(rH, rL)
+    int prev = map.get(tf_history, tf)
+    bool con = (raid != prev) and (raid != NEUTRAL)
+    int sig = con ? raid : NEUTRAL
+    if np
+        map.put(tf_history, tf, raid)
+    sig
+
+f_get_tier_signal(array<string> tfs) =>
+    int finalSig = NEUTRAL
+    for i = 0 to array.size(tfs) - 1
+        s = f_horc(array.get(tfs, i))
+        if s != NEUTRAL
+            finalSig := s
+            break
+    finalSig
+
+int dSig = f_get_tier_signal(tf_daily_tier)
+int sSig = f_get_tier_signal(tf_session_tier)
+int horcBias = dSig != NEUTRAL ? dSig : sSig
+
+string activeTF = dSig != NEUTRAL ? "DAILY" : sSig != NEUTRAL ? "SESSION" : "NONE"
+
+f_calc_div(int bias) =>
+    int div = 0
+    if bias == NEUTRAL
+        div
+    else
+        for i = 0 to array.size(tf_daily_tier) - 1
+            int s = map.get(tf_history, array.get(tf_daily_tier, i))
+            if s != NEUTRAL and s != bias
+                div += 1
+        for i = 0 to array.size(tf_session_tier) - 1
+            int s = map.get(tf_history, array.get(tf_session_tier, i))
+            if s != NEUTRAL and s != bias
+                div += 1
+        div
+
+int horcDiv = f_calc_div(horcBias)
+int maxDiv = array.size(tf_daily_tier) + array.size(tf_session_tier)
+bool biasValid = horcDiv <= min_div
+
+string useTF = crtTF == "" ? timeframe.period : crtTF
+float pHigh = request.security(syminfo.tickerid, useTF, high[1], barmerge.gaps_off, barmerge.lookahead_off)
+float pLow  = request.security(syminfo.tickerid, useTF, low[1], barmerge.gaps_off, barmerge.lookahead_off)
+
+bool sweepLow = low < pLow
+bool sweepHigh = high > pHigh
+bool closeAboveLow = close > pLow
+bool closeBelowHigh = close < pHigh
+
+bool crtLong = sweepLow and closeAboveLow
+bool crtShort = sweepHigh and closeBelowHigh
+
+bool inKZ = not useKZ or not na(time(timeframe.period, kzSession))
+
+bool pd_valid = true
+if use_pd_filter
+    if horcBias == BUYER
+        if range_status == "PREMIUM"
+            pd_valid := false
+    else if horcBias == SELLER
+        if range_status == "DISCOUNT"
+            pd_valid := false
+
+bool validLong = inKZ and biasValid and pd_valid and horcBias == BUYER and (not useCRT or crtLong)
+bool validShort = inKZ and biasValid and pd_valid and horcBias == SELLER and (not useCRT or crtShort)
+
+bgcolor(horcBias == BUYER ? color.new(color.green, 92) : horcBias == SELLER ? color.new(color.red, 92) : na)
+
+plotshape(validLong, "CRT Long", shape.triangleup, location.belowbar, color.lime, size=size.small)
+plotshape(validShort, "CRT Short", shape.triangledown, location.abovebar, color.red, size=size.small)
+
+float atr_val = ta.atr(14)
+var box currentBox = na
+var line slLine = na
+
+if validLong or validShort
+    if not na(currentBox)
+        box.delete(currentBox)
+    if not na(slLine)
+        line.delete(slLine)
+        
+    float rangeSize = pHigh - pLow
+    float boxTop = validLong ? pLow + rangeSize * 0.5 : pHigh
+    float boxBottom = validLong ? pLow : pHigh - rangeSize * 0.5
+    color boxCol = validLong ? color.new(color.lime, 80) : color.new(color.red, 80)
+    
+    currentBox := box.new(bar_index-1, boxTop, bar_index + box_len, boxBottom, border_color=boxCol, bgcolor=boxCol)
+    
+    float slY = validLong ? low - atr_val * atr_mult : high + atr_val * atr_mult
+    slLine := line.new(bar_index, slY, bar_index + box_len, slY, color=color.red, width=2)
+
+if barstate.islast
+    var table t = table.new(position.top_right, 3, 6, bgcolor=color.new(color.black, 70), border_width=1)
+    
+    table.cell(t, 0, 0, "STEALTH DOME v8.9b", text_color=color.white, bgcolor=color.blue)
+    table.cell(t, 1, 0, "", bgcolor=color.blue)
+    table.cell(t, 2, 0, "", bgcolor=color.blue)
+    
+    table.cell(t, 0, 1, "Context", text_color=color.white)
+    table.cell(t, 1, 1, activeTF, text_color=color.yellow)
+    table.cell(t, 2, 1, horcBias==BUYER?"BUYER":horcBias==SELLER?"SELLER":"NEUTRAL", text_color = horcBias==BUYER?color.lime:horcBias==SELLER?color.red:color.gray)
+
+    table.cell(t, 0, 2, "Divergence", text_color=color.white)
+    table.cell(t, 1, 2, str.tostring(horcDiv) + "/" + str.tostring(maxDiv), text_color=color.white)
+    table.cell(t, 2, 2, biasValid ? "VALID" : "WEAK", text_color=biasValid?color.lime:color.red)
+    
+    table.cell(t, 0, 3, "Timing", text_color=color.white)
+    table.cell(t, 1, 3, inKZ ? "KILL ZONE" : "OFF HOURS", text_color=inKZ?color.lime:color.gray)
+    
+    table.cell(t, 0, 4, "Range (P/D)", text_color=color.white)
+    table.cell(t, 1, 4, show_pd_info ? range_status : "HIDDEN", text_color=range_status=="PREMIUM"?color.red:range_status=="DISCOUNT"?color.green:color.gray)
+    table.cell(t, 2, 4, show_pd_info and p_liq_type!=NEUTRAL ? (p_liq_type==BUYER?"From LOW":"From HIGH") : "-", text_color=color.white)
+
+    table.cell(t, 0, 5, "Trap", text_color=color.white)
+    table.cell(t, 1, 5, "CRT", text_color=color.yellow)
+    table.cell(t, 2, 5, horcBias==BUYER?"Sweep Lows":horcBias==SELLER?"Sweep Highs":"Standby", text_color=color.white)
+
+if validLong
+    alert("Stealth Dome Long | TF: " + activeTF, alert.freq_once_per_bar_close)
+if validShort
+    alert("Stealth Dome Short | TF: " + activeTF, alert.freq_once_per_bar_close)

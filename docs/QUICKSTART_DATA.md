@@ -18,6 +18,8 @@ Since you want **free** futures data, here's your path:
 
 ## 5-Minute Setup (Interactive Brokers)
 
+**IMPORTANT**: IB paper trading uses **real live market data** - only order execution is simulated. Your HORC signals will be based on actual ES/NQ price action, not fake data.
+
 ### 1. Install IB Software
 ```bash
 # Download TWS or IB Gateway from:
@@ -150,6 +152,29 @@ The handlers (EPAM Java, C++) only **decode** the binary format. You still need 
 **For retail trading, use IB or Massive.**
 
 ## Recommended Path
+
+### Paper Trading Uses REAL Data ✓
+
+This is critical to understand: **IB paper trading streams the exact same live market data as real trading accounts.**
+
+| Aspect | Paper Trading | Live Trading |
+|--------|--------------|--------------|
+| **Market data** | ✅ Real-time live | ✅ Real-time live |
+| **ES/NQ prices** | ✅ Actual exchange | ✅ Actual exchange |
+| **Volume** | ✅ Real volume | ✅ Real volume |
+| **Timestamps** | ✅ Real timestamps | ✅ Real timestamps |
+| **Order execution** | ❌ Simulated | ✅ Real fills |
+| **Account balance** | Fake $1M | Your real money |
+
+**This means**:
+- Your HORC wavelength states will track real market structure
+- Participant control signals reflect actual swept liquidity
+- Exhaustion scores measure real absorption
+- Gap targets point to actual unfilled gaps
+
+The only thing simulated is whether your orders get filled (and paper trading is often *too* optimistic about fills).
+
+### Validation Path
 
 1. **Start with IB Paper Trading** (100% free)
    - Test your HORC system

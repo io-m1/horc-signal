@@ -41,7 +41,17 @@ from ..engines import Candle
 
 @dataclass
 class IBConfig:
-    """Interactive Brokers connection configuration"""
+    """
+    Interactive Brokers connection configuration.
+    
+    IMPORTANT: Paper trading uses REAL market data feeds (same as live).
+    Only order execution is simulated. This makes it perfect for:
+    - Testing your HORC system with real data
+    - Validating signal generation
+    - Backtesting with live bars
+    
+    The data quality is identical between paper and live.
+    """
     host: str = "127.0.0.1"
     port: int = 7497  # TWS paper trading (7496 for live)
     client_id: int = 1
@@ -54,6 +64,26 @@ class IBDataAdapter:
     
     Provides real-time futures bars with NO additional data fees
     (included with funded IB account).
+    
+    CRITICAL: Paper Trading = Real Data
+    =====================================
+    IB paper trading uses the SAME live market data as real trading.
+    Only differences:
+    - Orders are simulated (not sent to exchange)
+    - You start with fake $1M account
+    - Fills might be slightly more optimistic
+    
+    The market data itself (prices, volume, timestamps) is 100% real.
+    This means:
+    ✓ Your HORC signals will be identical to live
+    ✓ Perfect for validating your system
+    ✓ Confluence scores reflect real market conditions
+    ✓ No "garbage in, garbage out" from fake data
+    
+    Data Subscriptions:
+    - Futures (ES, NQ, YM, etc.): Usually included
+    - US Stocks: May require subscription ($1-10/month)
+    - Check TWS Account → Market Data Subscriptions
     
     Supports:
         - ES (E-mini S&P 500)
